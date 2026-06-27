@@ -48,8 +48,16 @@ export default {
       // Webhook payload is valid. Parse and process.
       const data = JSON.parse(body);
 
-      // TODO: Push data to Cloudflare SQS / D1 / KV / Supabase here
-      console.log('Valid telemetry received for machine:', data.machineId);
+      // Seamlessly and silently POST the validated JSON payload to the AXiM API
+      ctx.waitUntil(
+        fetch('https://api.aximcapital.com/v1/internal/vending/telemetry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        }).catch(err => {
+          console.error('Failed to post telemetry to AXiM Core:', err);
+        })
+      );
 
       return new Response('OK', { status: 200 });
     } catch (error) {
