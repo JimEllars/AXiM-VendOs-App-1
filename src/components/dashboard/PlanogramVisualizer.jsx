@@ -3,14 +3,21 @@ import { motion } from 'framer-motion';
 import SafeIcon from '../../common/SafeIcon';
 import { planogramService } from '../../services/planogramService';
 import LoadingState from '../layout/LoadingState';
+import { useMachines } from '../../hooks/useMachines';
 
 export default function PlanogramVisualizer() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // We can get the pulseId from MachineContext to highlight which machine is vending
+  // but for planogram, maybe we just want to pulse the specific item
+  const { pulseId } = useMachines();
+
   useEffect(() => {
     let mounted = true;
+
+    // Initial fetch to simulate the delay and loading state
     planogramService.getPlanogramData('DFW-EJR-2607-042')
       .then(res => {
         if(mounted) {
@@ -24,7 +31,21 @@ export default function PlanogramVisualizer() {
           setLoading(false);
         }
       });
-    return () => mounted = false;
+
+    // Subscribe to live updates
+    const unsubscribe = planogramService.subscribe((newData) => {
+      if (mounted) {
+         setData([...newData]);
+         // if loading was still true, this will bypass it, which is fine,
+         // it means we got data early via socket
+         setLoading(false);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const getStatusStyles = (status) => {
@@ -68,22 +89,22 @@ export default function PlanogramVisualizer() {
         <div className="grid grid-cols-3 gap-4 max-w-md mx-auto w-full perspective-1000">
           {data.map((item, i) => (
             <motion.div
-              key={item.id}
-              initial={{ opacity: 0, rotateX: -20 }}
-              animate={{ opacity: 1, rotateX: 0 }}
-              transition={{ delay: i * 0.1 }}
-              className={`relative bg-axim-black rounded-lg p-3 border-2 transition-all ${getStatusStyles(item.status)}`}
+              key={`${item.id}-${item.stock}`} // Force re-render/animation on stock change if needed
+              initial={{ opacity: 0, rotateX: -20, scale: 0.9 }}
+              animate={{ opacity: 1, rotateX: 0, scale: 1 }}
+              transition={{ delay: i * 0.05, type: 'spring', stiffness: 300 }}
+              className={`relative bg-axim-black rounded-lg p-3 border-2 transition-all duration-300 ${getStatusStyles(item.status)}`}
             >
               <div className="absolute top-1 right-2 text-[10px] font-mono text-gray-500">{item.id}</div>
               <div className="mt-2 text-center">
                 <SafeIcon 
                   name={item.id.startsWith('A') ? 'FiCoffee' : 'FiDroplet'} 
-                  className={`mx-auto text-2xl mb-2 ${item.status === 'optimal' ? 'text-gray-300' : item.status === 'critical' ? 'text-axim-crimson' : 'text-gray-500'}`} 
+                  className={`mx-auto text-2xl mb-2 transition-colors duration-300 ${item.status === 'optimal' ? 'text-gray-300' : item.status === 'critical' ? 'text-axim-crimson' : 'text-gray-500'}`}
                 />
                 <p className="text-[10px] text-gray-400 truncate w-full px-1">{item.product}</p>
                 <div className="mt-2 w-full bg-axim-steel/50 rounded-full h-1.5 overflow-hidden">
                   <div 
-                    className={`h-full ${item.status === 'optimal' ? 'bg-axim-emerald' : item.status === 'warning' ? 'bg-axim-gold' : 'bg-axim-crimson'}`}
+                    className={`h-full transition-all duration-500 ease-out ${item.status === 'optimal' ? 'bg-axim-emerald' : item.status === 'warning' ? 'bg-axim-gold' : 'bg-axim-crimson'}`}
                     style={{ width: `${(item.stock / item.capacity) * 100}%` }}
                   />
                 </div>

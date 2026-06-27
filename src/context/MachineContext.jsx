@@ -41,6 +41,8 @@ export const MachineProvider = ({ children }) => {
 
           ledgerService.recordMicroTransaction({
             machineId: updatedId,
+            item: payload.Item,
+            selectionId: payload.SelectionId,
             quantity: payload.Quantity,
             amount: payload.Amount,
             transactionId: payload.NayaxTransactionId,

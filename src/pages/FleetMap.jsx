@@ -1,19 +1,20 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMachines } from '../hooks/useMachines';
 import SafeIcon from '../common/SafeIcon';
 import { motion } from 'framer-motion';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import LoadingState from '../components/layout/LoadingState';
+import { logisticsService } from '../services/logisticsService';
 
 // Custom icons based on status
-const createCustomIcon = (color) => {
+const createCustomIcon = (color, text = '') => {
   return L.divIcon({
     className: 'custom-div-icon',
-    html: `<div style="background-color: ${color}; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
+    html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; font-size: 10px;">${text}</div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
   });
 };
 
@@ -32,16 +33,33 @@ const getMachineLocation = (machine) => {
   };
   const reg = machine.id.split('-')[0];
   const baseCoords = regions[reg] || [32.7767, -96.7970];
+
+  // Use deterministic pseudo-randomness based on ID so locations don't jump around
+  const idNum = parseInt(machine.id.replace(/\D/g, '')) || 0;
+
   return [
-    baseCoords[0] + (Math.random() * 0.1 - 0.05),
-    baseCoords[1] + (Math.random() * 0.1 - 0.05)
+    baseCoords[0] + ((idNum % 10) * 0.01 - 0.05),
+    baseCoords[1] + (((idNum * 2) % 10) * 0.01 - 0.05)
   ];
 };
 
 export default function FleetMap() {
   const { machines, loading } = useMachines();
+  const [optimalRoute, setOptimalRoute] = useState([]);
 
-  const regions = {
+  useEffect(() => {
+    logisticsService.getOptimalRoute().then(setOptimalRoute);
+  }, [machines]); // Re-calculate when machines update (e.g. status changes)
+
+  const hqLocation = [32.7767, -96.7970]; // DFW
+
+  // Filter to just the priority machines (REFILL or CRITICAL) to draw the route
+  const priorityMachines = optimalRoute.filter(m => m.status === 'REFILL' || m.status === 'CRITICAL');
+
+  // Coordinates for the polyline: HQ -> Machine 1 -> Machine 2 ...
+  const routeCoordinates = [hqLocation];
+
+  const regionsInfo = {
     'DFW': { name: 'Dallas / Fort Worth', coords: '32.7767° N, 96.7970° W', center: [32.7767, -96.7970] },
     'ETX': { name: 'East Texas (Tyler/Longview)', coords: '32.3513° N, 95.3011° W', center: [32.3513, -95.3011] },
     'VCO': { name: 'Vending Co Territory', coords: '33.2148° N, 97.1331° W', center: [33.2148, -97.1331] }
@@ -76,9 +94,29 @@ export default function FleetMap() {
                   url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                   className="map-tiles"
                 />
+
+                {/* HQ Marker */}
+                <Marker position={hqLocation} icon={createCustomIcon('#3b82f6', 'HQ')}>
+                  <Popup>
+                    <div className="text-xs font-sans">
+                      <strong className="block text-gray-800">Dallas HQ</strong>
+                    </div>
+                  </Popup>
+                </Marker>
+
                 {machines.map(m => {
                    const pos = getMachineLocation(m);
-                   const icon = icons[m.status] || icons.ACTIVE;
+                   let icon = icons[m.status] || icons.ACTIVE;
+
+                   // Check if it's in the optimal route and needs routing
+                   const routeIndex = priorityMachines.findIndex(pm => pm.id === m.id);
+                   if (routeIndex !== -1) {
+                      routeCoordinates.push(pos);
+                      // Create a custom icon with the sequence number
+                      const color = m.status === 'CRITICAL' ? '#FF3366' : '#D4AF37';
+                      icon = createCustomIcon(color, (routeIndex + 1).toString());
+                   }
+
                    return (
                      <Marker key={m.id} position={pos} icon={icon}>
                         <Popup>
@@ -90,17 +128,31 @@ export default function FleetMap() {
                                m.status === 'REFILL' ? 'text-yellow-600' : 'text-red-600'
                              }`}>Status: {m.status}</span>
                              <span className="block text-gray-600">Stock: {m.stock}%</span>
+                             {routeIndex !== -1 && (
+                               <span className="block text-blue-600 mt-1">Route Stop: #{routeIndex + 1}</span>
+                             )}
                            </div>
                         </Popup>
                      </Marker>
                    )
                 })}
+
+                {/* Draw Route Line */}
+                {routeCoordinates.length > 1 && (
+                  <Polyline
+                    positions={routeCoordinates}
+                    color="#3b82f6"
+                    weight={3}
+                    dashArray="5, 10"
+                    opacity={0.7}
+                  />
+                )}
              </MapContainer>
            )}
         </div>
 
         <div className="space-y-4">
-          {Object.entries(regions).map(([code, data]) => (
+          {Object.entries(regionsInfo).map(([code, data]) => (
             <motion.div 
               key={code}
               initial={{ opacity: 0, x: 20 }}
@@ -118,17 +170,23 @@ export default function FleetMap() {
               </div>
               
               <div className="space-y-2">
-                {grouped[code]?.map(m => (
-                  <div key={m.id} className="flex justify-between items-center p-2 bg-axim-black/50 rounded border border-axim-steel/30 text-xs">
-                    <span className="text-gray-300">{m.location}</span>
-                    <span className={`font-mono ${
-                      m.status === 'CRITICAL' ? 'text-axim-crimson' :
-                      m.status === 'REFILL' ? 'text-axim-gold' : 'text-axim-emerald'
-                    }`}>
-                      {m.stock}% ({m.status})
-                    </span>
-                  </div>
-                ))}
+                {grouped[code]?.map(m => {
+                  const routeIndex = priorityMachines.findIndex(pm => pm.id === m.id);
+                  return (
+                    <div key={m.id} className="flex justify-between items-center p-2 bg-axim-black/50 rounded border border-axim-steel/30 text-xs">
+                      <span className="text-gray-300">
+                        {m.location}
+                        {routeIndex !== -1 && <span className="ml-2 text-blue-400 font-bold">(Stop #{routeIndex + 1})</span>}
+                      </span>
+                      <span className={`font-mono ${
+                        m.status === 'CRITICAL' ? 'text-axim-crimson' :
+                        m.status === 'REFILL' ? 'text-axim-gold' : 'text-axim-emerald'
+                      }`}>
+                        {m.stock}% ({m.status})
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </motion.div>
           ))}

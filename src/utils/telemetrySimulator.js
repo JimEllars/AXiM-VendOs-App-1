@@ -1,4 +1,5 @@
 import { machineService } from '../services/machineService';
+import { planogramService } from '../services/planogramService';
 
 let intervalId = null;
 
@@ -6,6 +7,8 @@ const generateHMAC = (payload) => {
   // Simulating an HMAC generation for realism
   return 'hmac_sha256_' + btoa(JSON.stringify(payload)).substring(0, 32);
 };
+
+const selectionIds = ['A1', 'A2', 'A3', 'B1', 'B2', 'B3'];
 
 export const startTelemetrySimulator = (callback) => {
   if (intervalId) return;
@@ -30,10 +33,16 @@ export const startTelemetrySimulator = (callback) => {
       };
 
       if (isVend) {
+         const selectionId = selectionIds[Math.floor(Math.random() * selectionIds.length)];
+         const quantity = 1; // keep it 1 to match planogram decrements nicely, or could be random
+
+         const vendResult = planogramService.recordVend(selectionId, quantity);
+
          payload.Type = 'VEND';
-         payload.Item = 'Simulated Item';
+         payload.Item = vendResult ? vendResult.product : 'Simulated Item';
+         payload.SelectionId = selectionId;
          payload.Amount = 2.50;
-         payload.Quantity = Math.floor(Math.random() * 3 + 1);
+         payload.Quantity = quantity;
          payload.NewStock = Math.max(0, machine.stock - payload.Quantity);
       } else {
          payload.Type = 'TEMP_READING';

@@ -48,6 +48,51 @@ export default {
       // Webhook payload is valid. Parse and process.
       const data = JSON.parse(body);
 
+      // Cloudflare D1 Worker Binding logic
+      if (env.DB) {
+        ctx.waitUntil(
+          (async () => {
+            try {
+              if (data.Type === 'VEND') {
+                const transactionId = data.NayaxTransactionId || crypto.randomUUID();
+                const machineId = data.MachineId;
+                const amount = data.Amount || 0;
+                const quantity = data.Quantity || 1;
+                const isApproved = data.IsApproved ? 1 : 0;
+
+                // Insert transaction
+                await env.DB.prepare(
+                  `INSERT INTO transactions (id, transaction_id, machine_id, amount, quantity, is_approved)
+                   VALUES (?, ?, ?, ?, ?, ?)`
+                ).bind(crypto.randomUUID(), transactionId, machineId, amount, quantity, isApproved).run();
+
+                // Update stock in machines table
+                // Assume NewStock is provided in the payload, or we decrement by quantity
+                if (data.NewStock !== undefined) {
+                   await env.DB.prepare(
+                     `UPDATE machines SET stock = ?, updated_at = datetime('now') WHERE id = ?`
+                   ).bind(data.NewStock, machineId).run();
+                } else {
+                   await env.DB.prepare(
+                     `UPDATE machines SET stock = MAX(0, stock - ?), updated_at = datetime('now') WHERE id = ?`
+                   ).bind(quantity, machineId).run();
+                }
+              } else if (data.Type === 'TEMP_READING') {
+                const machineId = data.MachineId;
+                const newTemp = data.NewTemp;
+                if (machineId && newTemp !== undefined) {
+                  await env.DB.prepare(
+                    `UPDATE machines SET temp = ?, updated_at = datetime('now') WHERE id = ?`
+                  ).bind(newTemp, machineId).run();
+                }
+              }
+            } catch (dbErr) {
+              console.error('D1 Database error:', dbErr);
+            }
+          })()
+        );
+      }
+
       // Seamlessly and silently POST the validated JSON payload to the AXiM API
       ctx.waitUntil(
         fetch('https://api.aximcapital.com/v1/internal/vending/telemetry', {
