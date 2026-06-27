@@ -18,12 +18,39 @@ export const startTelemetrySimulator = (callback) => {
       const machines = await machineService.getAll();
       if (machines.length === 0) return;
 
+      // Restock Agent Logic
+      const now = Date.now();
+      const needsRestock = machines.find(m =>
+        m.status === 'ONYX_DISPATCHED' &&
+        m.dispatchedAt &&
+        (now - m.dispatchedAt) > 35000 // 35 seconds
+      );
+
+      if (needsRestock) {
+        planogramService.restockAll();
+        const payload = {
+          NayaxTransactionId: crypto.randomUUID(),
+          MachineId: needsRestock.id,
+          Type: 'RESTOCK',
+          Timestamp: new Date().toISOString()
+        };
+        const hmac = generateHMAC(payload);
+        console.log(`[Telemetry Sim] Webhook Dispatched (RESTOCK) | HMAC: ${hmac}`, payload);
+        if (callback) callback(payload);
+        return;
+      }
+
       // Pick a random machine
       const randomIndex = Math.floor(Math.random() * machines.length);
       const machine = machines[randomIndex];
 
       // Simulate a vend (stock decrease) or temp change
-      const isVend = Math.random() > 0.5;
+      let isVend = Math.random() > 0.5;
+
+      const availableSelections = planogramService.getAvailableSelections();
+      if (availableSelections.length === 0) {
+        isVend = false; // Force temp reading if nothing to vend
+      }
 
       const payload = {
         NayaxTransactionId: crypto.randomUUID(),
@@ -33,7 +60,7 @@ export const startTelemetrySimulator = (callback) => {
       };
 
       if (isVend) {
-         const selectionId = selectionIds[Math.floor(Math.random() * selectionIds.length)];
+         const selectionId = availableSelections[Math.floor(Math.random() * availableSelections.length)];
          const quantity = 1; // keep it 1 to match planogram decrements nicely, or could be random
 
          const vendResult = planogramService.recordVend(selectionId, quantity);

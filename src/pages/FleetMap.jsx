@@ -48,8 +48,10 @@ export default function FleetMap() {
   const [optimalRoute, setOptimalRoute] = useState([]);
 
   useEffect(() => {
-    logisticsService.getOptimalRoute().then(setOptimalRoute);
-  }, [machines]); // Re-calculate when machines update (e.g. status changes)
+    if (machines && machines.length > 0) {
+      logisticsService.getOptimalRoute(machines).then(setOptimalRoute);
+    }
+  }, [machines]);
 
   const hqLocation = [32.7767, -96.7970]; // DFW
 

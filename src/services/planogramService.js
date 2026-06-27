@@ -32,6 +32,19 @@ export const planogramService = {
     return [...planogramData];
   },
 
+  getAvailableSelections() {
+    return planogramData.filter(item => item.stock > 0).map(item => item.id);
+  },
+
+  restockAll() {
+    planogramData = planogramData.map(item => ({
+      ...item,
+      stock: item.capacity,
+      status: 'optimal'
+    }));
+    listeners.forEach(listener => listener(planogramData));
+  },
+
   recordVend(selectionId, quantity = 1) {
     let itemToVend = null;
 

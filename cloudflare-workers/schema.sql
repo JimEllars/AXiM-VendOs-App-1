@@ -18,11 +18,8 @@ CREATE TABLE IF NOT EXISTS machines (
 CREATE TABLE IF NOT EXISTS inventory_logs (
     id TEXT PRIMARY KEY,
     machine_id TEXT NOT NULL,
-    item_id TEXT NOT NULL,
-    action TEXT NOT NULL, -- e.g., 'RESTOCK', 'VEND', 'SPOILAGE'
-    quantity INTEGER NOT NULL,
-    timestamp TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (machine_id) REFERENCES machines(id) ON DELETE CASCADE
+    selection_id TEXT NOT NULL,
+    timestamp TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS transactions (

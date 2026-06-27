@@ -33,7 +33,10 @@ export default function LiveLedgerFeed() {
 
       <div className="overflow-y-auto flex-1 p-2 custom-scrollbar">
         {transactions.length === 0 ? (
-          <div className="text-center text-gray-500 mt-10 text-sm">Waiting for telemetry...</div>
+          <div className="flex flex-col items-center justify-center h-full mt-10 space-y-4">
+            <SafeIcon name="FiRefreshCw" className="text-axim-emerald text-3xl animate-spin" />
+            <div className="text-center text-gray-400 text-sm font-mono animate-pulse">Status: Connecting to AXiM Core...</div>
+          </div>
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="text-xs text-gray-400 uppercase bg-axim-black/30 sticky top-0 z-10 backdrop-blur-sm">
@@ -66,6 +69,14 @@ export default function LiveLedgerFeed() {
             </tbody>
           </table>
         )}
+      </div>
+
+      {/* Sticky Footer */}
+      <div className="p-3 bg-axim-black border-t border-axim-steel flex justify-between items-center text-sm">
+        <span className="text-gray-400 font-medium">Session Ad Spend Generated</span>
+        <span className="text-axim-emerald font-bold font-mono">
+          {formatCurrency(transactions.length * 0.15)}
+        </span>
       </div>
     </div>
   );

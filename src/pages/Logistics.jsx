@@ -2,17 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { logisticsService } from '../services/logisticsService';
 import SafeIcon from '../common/SafeIcon';
 import { motion } from 'framer-motion';
+import { useMachines } from '../hooks/useMachines';
 
 export default function Logistics() {
+  const { machines, loading: machinesLoading } = useMachines();
   const [route, setRoute] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    logisticsService.getOptimalRoute().then(data => {
-      setRoute(data);
-      setLoading(false);
-    });
-  }, []);
+    if (machines && machines.length > 0) {
+      logisticsService.getOptimalRoute(machines).then(data => {
+        setRoute(data);
+        setLoading(false);
+      });
+    } else if (!machinesLoading) {
+       setLoading(false);
+    }
+  }, [machines, machinesLoading]);
 
   return (
     <div className="space-y-6">
