@@ -1,19 +1,12 @@
-import { ensureTab, getRows, updateRow, findRowIndexById, appendRow } from '../lib/googleSheets';
+import { fetchAdapter } from './mocks/adapter';
 
-const TAB = 'Settings';
-const HEADERS = ['id', 'key', 'value', 'description', 'updated_at'];
+const API_BASE = 'https://api.aximcapital.com/v1/internal/vending';
 
 export const settingsService = {
   async getAll() {
-    await ensureTab(TAB, HEADERS);
-    const rows = await getRows(`${TAB}!A2:E`);
-    return rows.map(row => ({
-      id: row[0],
-      key: row[1],
-      value: row[2],
-      description: row[3],
-      updated_at: row[4]
-    }));
+    const res = await fetchAdapter(`${API_BASE}/settings`);
+    if (!res.ok) throw new Error('Failed to fetch settings');
+    return res.json();
   },
 
   async getByKey(key) {
@@ -26,37 +19,30 @@ export const settingsService = {
     const existing = all.find(s => s.key === key);
     
     if (existing) {
-      const idx = await findRowIndexById(TAB, existing.id);
-      await updateRow(`${TAB}!A${idx}:E${idx}`, [
-        existing.id,
-        key,
-        value,
-        existing.description,
-        new Date().toISOString()
-      ]);
+      const res = await fetchAdapter(`${API_BASE}/settings/${existing.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value })
+      });
+      if (!res.ok) throw new Error('Failed to update setting');
+      return res.json();
     } else {
-      await appendRow(`${TAB}!A:E`, [
-        crypto.randomUUID(),
-        key,
-        value,
-        'System parameter',
-        new Date().toISOString()
-      ]);
+      const res = await fetchAdapter(`${API_BASE}/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key,
+          value,
+          description: 'System parameter'
+        })
+      });
+      if (!res.ok) throw new Error('Failed to create setting');
+      return res.json();
     }
   },
 
   async bootstrap() {
-    const defaults = [
-      { key: 'SCENARIO_A_FC', value: '1100', desc: 'Garage + Truck Monthly Fixed Cost' },
-      { key: 'RESERVE_TARGET', value: '1800', desc: 'Snowball Purchase Trigger Amount' },
-      { key: 'AVG_CM_PER_UNIT', value: '486.40', desc: 'Average Contribution Margin per Machine' }
-    ];
-    
-    const existing = await this.getAll();
-    if (existing.length === 0) {
-      for (const d of defaults) {
-        await appendRow(`${TAB}!A:E`, [crypto.randomUUID(), d.key, d.value, d.desc, new Date().toISOString()]);
-      }
-    }
+    // Handled by mock data or backend initialization
+    console.warn('bootstrap() is deprecated with new API structure');
   }
 };

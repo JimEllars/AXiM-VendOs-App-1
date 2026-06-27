@@ -26,8 +26,10 @@ export const startTelemetrySimulator = (callback) => {
 
       updateData.last_dex = new Date().toISOString();
 
-      if (updateData.stock < 30) updateData.status = 'CRITICAL';
-      else if (updateData.stock < 60) updateData.status = 'REFILL';
+      if (updateData.stock < 30 || updateData.temp > 40) {
+        updateData.status = 'ONYX_DISPATCHED';
+        console.warn(JSON.stringify({ severity: 'HIGH', tag: 'AXIM_VENDOS', message: 'Onyx Mk3 Swarm Dispatched' }));
+      } else if (updateData.stock < 60) updateData.status = 'REFILL';
       else updateData.status = 'ACTIVE';
 
       await machineService.update(machine.id, updateData);

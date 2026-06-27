@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { machineService } from '../services/machineService';
 import { startTelemetrySimulator, stopTelemetrySimulator } from '../utils/telemetrySimulator';
+import { ledgerService } from '../services/ledgerService';
 
 export const MachineContext = createContext(null);
 
@@ -28,7 +29,21 @@ export const MachineProvider = ({ children }) => {
 
   useEffect(() => {
     startTelemetrySimulator((updatedId, updateData) => {
-      setMachines(prev => prev.map(m => m.id === updatedId ? { ...m, ...updateData } : m));
+      setMachines(prev => {
+        const oldMachine = prev.find(m => m.id === updatedId);
+
+        // Detect a vend (stock decrease)
+        if (oldMachine && updateData.stock !== undefined && updateData.stock < oldMachine.stock) {
+          const quantitySold = oldMachine.stock - updateData.stock;
+          ledgerService.recordMicroTransaction({
+            machineId: updatedId,
+            quantity: quantitySold,
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        return prev.map(m => m.id === updatedId ? { ...m, ...updateData } : m);
+      });
       setPulseId(updatedId);
       setTimeout(() => setPulseId(null), 2000);
     });
