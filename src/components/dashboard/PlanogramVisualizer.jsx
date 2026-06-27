@@ -1,9 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import SafeIcon from '../../common/SafeIcon';
-import { planogramData } from '../../data/mockData';
+import { planogramService } from '../../services/planogramService';
+import LoadingState from '../layout/LoadingState';
 
 export default function PlanogramVisualizer() {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    planogramService.getPlanogramData('DFW-EJR-2607-042')
+      .then(res => {
+        if(mounted) {
+          setData(res);
+          setLoading(false);
+        }
+      })
+      .catch(err => {
+        if(mounted) {
+          setError(err.message);
+          setLoading(false);
+        }
+      });
+    return () => mounted = false;
+  }, []);
+
   const getStatusStyles = (status) => {
     switch(status) {
       case 'optimal': return 'border-axim-emerald shadow-[0_0_10px_rgba(0,229,163,0.2)]';
@@ -13,8 +36,26 @@ export default function PlanogramVisualizer() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="bg-axim-charcoal border border-axim-steel rounded-xl p-5 h-full flex items-center justify-center">
+        <LoadingState message="Loading Planogram Data..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-axim-charcoal border border-axim-steel rounded-xl p-5 h-full flex flex-col items-center justify-center text-center">
+         <SafeIcon name="FiAlertTriangle" className="text-axim-crimson text-3xl mb-2" />
+         <p className="text-white font-medium mb-1">AXiM System Error</p>
+         <p className="text-xs text-gray-400">Failed to load planogram telemetry: {error}</p>
+      </div>
+    )
+  }
+
   return (
-    <div className="bg-axim-charcoal border border-axim-steel rounded-xl overflow-hidden flex flex-col">
+    <div className="bg-axim-charcoal border border-axim-steel rounded-xl overflow-hidden flex flex-col h-full">
       <div className="p-5 border-b border-axim-steel flex justify-between items-center">
         <div className="flex items-center gap-2">
           <SafeIcon name="FiLayout" className="text-gray-400" />
@@ -25,7 +66,7 @@ export default function PlanogramVisualizer() {
       
       <div className="p-6 flex-1 flex flex-col justify-center bg-gradient-to-b from-axim-charcoal to-axim-black">
         <div className="grid grid-cols-3 gap-4 max-w-md mx-auto w-full perspective-1000">
-          {planogramData.map((item, i) => (
+          {data.map((item, i) => (
             <motion.div
               key={item.id}
               initial={{ opacity: 0, rotateX: -20 }}

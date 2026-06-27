@@ -1,9 +1,50 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactECharts from 'echarts-for-react';
-import { fleetEconomics } from '../../data/mockData';
+import { economicsService } from '../../services/economicsService';
 import SafeIcon from '../../common/SafeIcon';
+import LoadingState from '../layout/LoadingState';
 
 export default function FleetEconomicsChart() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    economicsService.getFleetEconomics()
+      .then(res => {
+        if (mounted) {
+          setData(res);
+          setLoading(false);
+        }
+      })
+      .catch(err => {
+        if (mounted) {
+          setError(err.message);
+          setLoading(false);
+        }
+      })
+    return () => mounted = false;
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="bg-axim-charcoal border border-axim-steel rounded-xl p-5 h-full flex flex-col items-center justify-center">
+        <LoadingState message="Calculating Economics..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-axim-charcoal border border-axim-steel rounded-xl p-5 h-full flex flex-col items-center justify-center text-center">
+         <SafeIcon name="FiAlertTriangle" className="text-axim-crimson text-3xl mb-2" />
+         <p className="text-white font-medium mb-1">AXiM System Error</p>
+         <p className="text-xs text-gray-400">Failed to calculate economics: {error}</p>
+      </div>
+    )
+  }
+
   const options = {
     backgroundColor: 'transparent',
     tooltip: {
@@ -21,7 +62,7 @@ export default function FleetEconomicsChart() {
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: fleetEconomics.months,
+      data: data.months,
       axisLine: { lineStyle: { color: '#2A2C35' } },
       axisLabel: { color: '#9CA3AF' }
     },
@@ -38,7 +79,7 @@ export default function FleetEconomicsChart() {
       {
         name: 'Finance Profit',
         type: 'line',
-        data: fleetEconomics.finance.profit,
+        data: data.finance.profit,
         itemStyle: { color: '#D4AF37' },
         lineStyle: { width: 2 },
         smooth: true
@@ -46,7 +87,7 @@ export default function FleetEconomicsChart() {
       {
         name: 'Hybrid Cash Profit',
         type: 'line',
-        data: fleetEconomics.hybrid.profit,
+        data: data.hybrid.profit,
         itemStyle: { color: '#00E5A3' },
         areaStyle: {
           color: {

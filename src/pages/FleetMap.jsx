@@ -2,14 +2,40 @@ import React from 'react';
 import { useMachines } from '../hooks/useMachines';
 import SafeIcon from '../common/SafeIcon';
 import { motion } from 'framer-motion';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix for default marker icon in react-leaflet
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+const getMachineLocation = (machine) => {
+  // Mock coordinate calculation based on region and some random jitter
+  const regions = {
+    'DFW': [32.7767, -96.7970],
+    'ETX': [32.3513, -95.3011],
+    'VCO': [33.2148, -97.1331]
+  };
+  const reg = machine.id.split('-')[0];
+  const baseCoords = regions[reg] || [32.7767, -96.7970];
+  return [
+    baseCoords[0] + (Math.random() * 0.1 - 0.05),
+    baseCoords[1] + (Math.random() * 0.1 - 0.05)
+  ];
+};
 
 export default function FleetMap() {
   const { machines, loading } = useMachines();
 
   const regions = {
-    'DFW': { name: 'Dallas / Fort Worth', coords: '32.7767° N, 96.7970° W' },
-    'ETX': { name: 'East Texas', coords: '32.3513° N, 95.3011° W' },
-    'VCO': { name: 'Vending Co Territory', coords: '33.2148° N, 97.1331° W' }
+    'DFW': { name: 'Dallas / Fort Worth', coords: '32.7767° N, 96.7970° W', center: [32.7767, -96.7970] },
+    'ETX': { name: 'East Texas', coords: '32.3513° N, 95.3011° W', center: [32.3513, -95.3011] },
+    'VCO': { name: 'Vending Co Territory', coords: '33.2148° N, 97.1331° W', center: [33.2148, -97.1331] }
   };
 
   const grouped = machines.reduce((acc, m) => {
@@ -19,6 +45,8 @@ export default function FleetMap() {
     return acc;
   }, {});
 
+  const centerPosition = [32.7767, -96.7970]; // Default DFW
+
   return (
     <div className="space-y-6">
       <div>
@@ -27,14 +55,28 @@ export default function FleetMap() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-axim-charcoal border border-axim-steel rounded-xl p-6 min-h-[500px] flex flex-col">
-          <div className="flex-1 border border-axim-steel bg-axim-black rounded-lg relative overflow-hidden flex items-center justify-center">
-            <div className="absolute inset-0 opacity-10 bg-[url('https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&q=80&w=1000')] bg-cover grayscale" />
-            <div className="relative z-10 text-center space-y-4">
-              <SafeIcon name="FiMapPin" className="text-axim-emerald text-5xl mx-auto animate-bounce" />
-              <p className="text-gray-400 max-w-xs mx-auto">Interactive Map Engine initializing. Regional clusters are being processed.</p>
-            </div>
-          </div>
+        <div className="bg-axim-charcoal border border-axim-steel rounded-xl p-1 min-h-[500px] flex flex-col relative z-0">
+           <MapContainer center={centerPosition} zoom={7} className="h-full w-full rounded-lg bg-axim-black" style={{ minHeight: '500px' }}>
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                className="map-tiles"
+              />
+              {!loading && machines.map(m => {
+                 const pos = getMachineLocation(m);
+                 return (
+                   <Marker key={m.id} position={pos}>
+                      <Popup>
+                         <div className="text-xs">
+                           <strong className="block text-gray-800">{m.id}</strong>
+                           <span className="block text-gray-600">{m.location}</span>
+                           <span className={`block font-bold mt-1 ${m.status === 'ACTIVE' ? 'text-green-600' : 'text-orange-600'}`}>Status: {m.status}</span>
+                         </div>
+                      </Popup>
+                   </Marker>
+                 )
+              })}
+           </MapContainer>
         </div>
 
         <div className="space-y-4">
