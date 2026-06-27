@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import SafeIcon from '../../common/SafeIcon';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import { formatCurrency } from '../../utils/aximUtils';
+import { ledgerService } from '../../services/ledgerService';
 
 const Card = ({ title, value, subtitle, icon, colorClass, delay, loading }) => (
   <motion.div 
@@ -27,6 +28,25 @@ const Card = ({ title, value, subtitle, icon, colorClass, delay, loading }) => (
 
 export default function SummaryCards() {
   const { metrics, loading } = useAnalytics();
+  const [adSpendBudget, setAdSpendBudget] = useState(0);
+
+  useEffect(() => {
+    // Calculate initial
+    const txs = ledgerService.getTransactions();
+    const calculateBudget = (transactions) => {
+      // Let's say 15 cents per transaction is allocated to ad spend
+      const totalQuantity = transactions.reduce((sum, tx) => sum + (tx.details?.quantity || 1), 0);
+      return totalQuantity * 0.15;
+    };
+
+    setAdSpendBudget(calculateBudget(txs));
+
+    const unsubscribe = ledgerService.subscribe((transactions) => {
+      setAdSpendBudget(calculateBudget(transactions));
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const data = metrics || {
     totalCashYield: 0,
@@ -36,7 +56,7 @@ export default function SummaryCards() {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
       <Card 
         title="Total Cash Yield" 
         value={formatCurrency(data.totalCashYield)} 
@@ -71,6 +91,15 @@ export default function SummaryCards() {
         icon="FiHome" 
         colorClass="text-gray-400" 
         delay={0.4}
+        loading={loading}
+      />
+      <Card
+        title="Circular Ad Spend"
+        value={formatCurrency(adSpendBudget)}
+        subtitle="Funded by Ledger Vends"
+        icon="FiTrendingUp"
+        colorClass="text-purple-400"
+        delay={0.5}
         loading={loading}
       />
     </div>

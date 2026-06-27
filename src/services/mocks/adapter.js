@@ -10,6 +10,8 @@ let mockInventory = [
   { id: 'coke-35', name: 'Coca-Cola', brand: 'Coke', case_cost: 18.48, unit_cogs: 0.53, retail_price: 2.00, margin: '73.50%', stock_level: 120, category: 'Soda' }
 ];
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 export const mockFetch = async (url, options = {}) => {
   if (url === 'https://api.aximcapital.com/v1/internal/vending/machines') {
     if (options.method === 'POST') {
@@ -57,8 +59,6 @@ export const mockFetch = async (url, options = {}) => {
   return fetch(url, options);
 };
 
-export const fetchAdapter = fetchAdapterUnified;
-
 let mockSettings = [
   { id: 'SET-1', key: 'SCENARIO_A_FC', value: '1100', description: 'Garage + Truck Monthly Fixed Cost', updated_at: new Date().toISOString() },
   { id: 'SET-2', key: 'RESERVE_TARGET', value: '1800', description: 'Snowball Purchase Trigger Amount', updated_at: new Date().toISOString() },
@@ -101,8 +101,19 @@ export const mockFetchSettings = async (url, options = {}) => {
 
 // We will export a unified fetch adapter that handles all endpoints
 export const fetchAdapterUnified = async (url, options = {}) => {
+    // Simulate 50ms to 150ms network delay
+    const delay = Math.floor(Math.random() * (150 - 50 + 1)) + 50;
+    await sleep(delay);
+
+    // Simulate 5% random failure rate
+    if (Math.random() < 0.05) {
+        throw new Error('500 Internal Server Error');
+    }
+
     if (url.includes('/settings')) {
         return mockFetchSettings(url, options);
     }
     return mockFetch(url, options);
 };
+
+export const fetchAdapter = fetchAdapterUnified;

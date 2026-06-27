@@ -1,18 +1,34 @@
+let transactions = [];
+let listeners = [];
+
 export const ledgerService = {
+  subscribe(listener) {
+    listeners.push(listener);
+    return () => {
+      listeners = listeners.filter(l => l !== listener);
+    };
+  },
+
+  getTransactions() {
+    return [...transactions];
+  },
+
   async recordMicroTransaction(vendDetails) {
     try {
       console.log(`[Ledger Service] Recording micro-transaction:`, vendDetails);
 
-      // In a real implementation this would POST to a ledger API
-      // const res = await fetch('https://api.aximcapital.com/v1/internal/vending/ledger', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(vendDetails)
-      // });
-      // if (!res.ok) throw new Error('Ledger transaction failed');
-      // return res.json();
+      const newTx = {
+        success: true,
+        transactionId: crypto.randomUUID(),
+        details: vendDetails,
+        timestamp: new Date().toISOString()
+      };
 
-      return { success: true, transactionId: crypto.randomUUID(), details: vendDetails };
+      transactions.push(newTx);
+
+      listeners.forEach(listener => listener(transactions));
+
+      return newTx;
     } catch (error) {
       console.error('[Ledger Service] Error recording micro-transaction:', error);
       throw error;
