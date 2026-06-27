@@ -1,0 +1,7 @@
+name = "vendos-telemetry-webhook"
+main = "index.js"
+compatibility_date = "2024-05-12"
+
+# Example environment variables (do not store actual secrets here)
+[vars]
+WEBHOOK_SECRET = "simulated_secret_for_validation"

@@ -1,8 +1,10 @@
 import React from 'react';
 import SafeIcon from '../../common/SafeIcon';
-import { summaryMetrics } from '../../data/mockData';
+import { useAnalytics } from '../../hooks/useAnalytics';
 
 export default function Header() {
+  const { metrics, loading } = useAnalytics();
+
   return (
     <header className="h-16 border-b border-axim-steel bg-axim-black/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-10">
       <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -13,7 +15,7 @@ export default function Header() {
       <div className="flex items-center gap-6">
         <div className="flex bg-axim-steel/50 rounded-full px-4 py-1.5 items-center gap-2 border border-axim-steel">
            <span className="w-2 h-2 rounded-full bg-axim-emerald animate-pulse"></span>
-           <span className="text-xs font-medium text-gray-300">Fleet Count: {summaryMetrics.fleetCount}</span>
+           <span className="text-xs font-medium text-gray-300">Fleet Count: {loading ? '...' : metrics?.fleetCount || 0}</span>
         </div>
         
         <div className="flex items-center gap-3 border-l border-axim-steel pl-6">

@@ -1,7 +1,8 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import SafeIcon from '../../common/SafeIcon';
 import { useMachines } from '../../hooks/useMachines';
+import { startTelemetrySimulator, stopTelemetrySimulator } from '../../utils/telemetrySimulator';
 
 const StatusBadge = ({ status }) => {
   const styles = {
@@ -17,9 +18,22 @@ const StatusBadge = ({ status }) => {
 };
 
 export default function MachineStatusGrid() {
-  const { machines, loading } = useMachines();
+  const { machines, loading, refresh } = useMachines();
+  const [pulseId, setPulseId] = useState(null);
 
-  if (loading) return (
+  useEffect(() => {
+    startTelemetrySimulator((updatedId) => {
+      refresh();
+      setPulseId(updatedId);
+      setTimeout(() => setPulseId(null), 2000); // Clear pulse after animation
+    });
+
+    return () => {
+      stopTelemetrySimulator();
+    };
+  }, [refresh]);
+
+  if (loading && machines.length === 0) return (
     <div className="bg-axim-charcoal border border-axim-steel rounded-xl h-96 flex items-center justify-center">
       <div className="flex flex-col items-center gap-3">
         <div className="w-8 h-8 border-2 border-axim-emerald border-t-transparent rounded-full animate-spin" />
@@ -51,9 +65,25 @@ export default function MachineStatusGrid() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 * i }}
-            className="p-4 border border-axim-steel rounded-lg bg-axim-black flex flex-col justify-between hover:border-axim-emerald/30 transition-all cursor-pointer group"
+            className={`p-4 border rounded-lg bg-axim-black flex flex-col justify-between transition-all cursor-pointer group relative overflow-hidden ${
+              pulseId === machine.id
+                ? 'border-axim-emerald shadow-[0_0_15px_rgba(0,229,163,0.3)]'
+                : 'border-axim-steel hover:border-axim-emerald/30'
+            }`}
           >
-            <div className="flex justify-between items-start mb-4">
+             <AnimatePresence>
+               {pulseId === machine.id && (
+                 <motion.div
+                   initial={{ opacity: 0.5, scale: 0.8 }}
+                   animate={{ opacity: 0, scale: 1.5 }}
+                   exit={{ opacity: 0 }}
+                   transition={{ duration: 1 }}
+                   className="absolute inset-0 bg-axim-emerald/20 pointer-events-none"
+                 />
+               )}
+             </AnimatePresence>
+
+            <div className="flex justify-between items-start mb-4 relative z-10">
               <div>
                 <p className="text-[10px] text-gray-500 font-mono mb-1">{machine.id}</p>
                 <p className="text-sm font-medium text-gray-200 group-hover:text-axim-emerald transition-colors">{machine.location}</p>
@@ -61,7 +91,7 @@ export default function MachineStatusGrid() {
               </div>
               <StatusBadge status={machine.status} />
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 relative z-10">
               <div className="bg-axim-charcoal rounded p-2 text-center border border-axim-steel/50">
                 <p className="text-[10px] text-gray-500 uppercase">Stock</p>
                 <p className={`text-sm font-bold ${machine.stock < 30 ? 'text-axim-crimson' : machine.stock < 60 ? 'text-axim-gold' : 'text-axim-emerald'}`}>
