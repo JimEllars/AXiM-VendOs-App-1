@@ -2,8 +2,8 @@ import { machineService } from './machineService';
 import { settingsService } from './settingsService';
 
 export const analyticsService = {
-  async getSummaryMetrics() {
-    const machines = await machineService.getAll();
+  async getSummaryMetrics(providedMachines = null) {
+    const machines = providedMachines || await machineService.getAll();
     const settings = await settingsService.getAll();
     
     const avgCM = parseFloat(settings.find(s => s.key === 'AVG_CM_PER_UNIT')?.value || 486.40);
