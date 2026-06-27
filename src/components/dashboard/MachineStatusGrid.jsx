@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SafeIcon from '../../common/SafeIcon';
 import { useMachines } from '../../hooks/useMachines';
-import { startTelemetrySimulator, stopTelemetrySimulator } from '../../utils/telemetrySimulator';
+import LoadingState from '../layout/LoadingState';
 
 const StatusBadge = ({ status }) => {
   const styles = {
@@ -18,27 +18,11 @@ const StatusBadge = ({ status }) => {
 };
 
 export default function MachineStatusGrid() {
-  const { machines, loading, refresh } = useMachines();
-  const [pulseId, setPulseId] = useState(null);
-
-  useEffect(() => {
-    startTelemetrySimulator((updatedId) => {
-      refresh();
-      setPulseId(updatedId);
-      setTimeout(() => setPulseId(null), 2000); // Clear pulse after animation
-    });
-
-    return () => {
-      stopTelemetrySimulator();
-    };
-  }, [refresh]);
+  const { machines, loading, pulseId } = useMachines();
 
   if (loading && machines.length === 0) return (
     <div className="bg-axim-charcoal border border-axim-steel rounded-xl h-96 flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-8 h-8 border-2 border-axim-emerald border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs text-gray-500">Syncing telemetry...</p>
-      </div>
+      <LoadingState message="Syncing telemetry..." />
     </div>
   );
 
@@ -68,6 +52,10 @@ export default function MachineStatusGrid() {
             className={`p-4 border rounded-lg bg-axim-black flex flex-col justify-between transition-all cursor-pointer group relative overflow-hidden ${
               pulseId === machine.id
                 ? 'border-axim-emerald shadow-[0_0_15px_rgba(0,229,163,0.3)]'
+                : machine.status === 'CRITICAL'
+                ? 'border-axim-crimson shadow-[0_0_15px_rgba(255,51,102,0.3)]'
+                : machine.status === 'REFILL'
+                ? 'border-axim-gold shadow-[0_0_15px_rgba(255,184,0,0.3)]'
                 : 'border-axim-steel hover:border-axim-emerald/30'
             }`}
           >
@@ -78,7 +66,11 @@ export default function MachineStatusGrid() {
                    animate={{ opacity: 0, scale: 1.5 }}
                    exit={{ opacity: 0 }}
                    transition={{ duration: 1 }}
-                   className="absolute inset-0 bg-axim-emerald/20 pointer-events-none"
+                   className={`absolute inset-0 pointer-events-none ${
+                     machine.status === 'CRITICAL' ? 'bg-axim-crimson/20' :
+                     machine.status === 'REFILL' ? 'bg-axim-gold/20' :
+                     'bg-axim-emerald/20'
+                   }`}
                  />
                )}
              </AnimatePresence>

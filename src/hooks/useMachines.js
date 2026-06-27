@@ -1,26 +1,10 @@
-import { useState, useEffect } from 'react';
-import { machineService } from '../services/machineService';
+import { useContext } from 'react';
+import { MachineContext } from '../context/MachineContext';
 
 export function useMachines() {
-  const [machines, setMachines] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  const fetchMachines = async () => {
-    try {
-      setLoading(true);
-      const data = await machineService.getAll();
-      setMachines(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchMachines();
-  }, []);
-
-  return { machines, loading, error, refresh: fetchMachines };
+  const context = useContext(MachineContext);
+  if (!context) {
+    throw new Error('useMachines must be used within a MachineProvider');
+  }
+  return context;
 }

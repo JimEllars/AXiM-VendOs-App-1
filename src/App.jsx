@@ -7,22 +7,28 @@ import Finance from './pages/Finance';
 import Logistics from './pages/Logistics';
 import Settings from './pages/Settings';
 import FleetMap from './pages/FleetMap';
+import { MachineProvider } from './context/MachineContext';
+import ErrorBoundary from './components/layout/ErrorBoundary';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<DashboardLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="map" element={<FleetMap />} />
-          <Route path="inventory" element={<Inventory />} />
-          <Route path="logistics" element={<Logistics />} />
-          <Route path="finance" element={<Finance />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    </Router>
+    <ErrorBoundary>
+      <MachineProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<DashboardLayout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="map" element={<FleetMap />} />
+              <Route path="inventory" element={<Inventory />} />
+              <Route path="logistics" element={<Logistics />} />
+              <Route path="finance" element={<Finance />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        </Router>
+      </MachineProvider>
+    </ErrorBoundary>
   );
 }
 

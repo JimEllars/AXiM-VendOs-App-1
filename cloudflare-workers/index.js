@@ -12,18 +12,24 @@ export default {
       }
 
       const body = await request.text();
+      const secret = env.WEBHOOK_SECRET || 'dummy_secret';
 
       // HMAC SHA-256 Validation Logic
       const encoder = new TextEncoder();
       const keyMaterial = await crypto.subtle.importKey(
         'raw',
-        encoder.encode(env.WEBHOOK_SECRET),
+        encoder.encode(secret),
         { name: 'HMAC', hash: 'SHA-256' },
         false,
         ['verify']
       );
 
       // Convert hex signature to ArrayBuffer
+      // Add error handling for invalid signature formats
+      if (!/^[\da-f]+$/i.test(signature) || signature.length % 2 !== 0) {
+        return new Response('Invalid Signature Format', { status: 403 });
+      }
+
       const signatureBuffer = new Uint8Array(
         signature.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16))
       );
