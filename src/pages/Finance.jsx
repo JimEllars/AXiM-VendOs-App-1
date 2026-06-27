@@ -1,6 +1,7 @@
 import React from 'react';
 import SafeIcon from '../common/SafeIcon';
 import FleetEconomicsChart from '../components/dashboard/FleetEconomicsChart';
+import LiveLedgerFeed from '../components/dashboard/LiveLedgerFeed';
 
 const scenarios = [
   { name: 'Original Scenario', fc: 2600.00, breakeven: 5.88, target: 17.19, details: 'Warehouse + Truck' },
@@ -43,28 +44,35 @@ export default function Finance() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <FleetEconomicsChart />
-        <div className="bg-axim-charcoal border border-axim-steel rounded-xl p-6">
-          <div className="flex items-center gap-2 mb-6 text-axim-emerald">
-            <SafeIcon name="FiZap" className="text-xl" />
-            <h2 className="font-bold text-lg">Snowball Purchase Trigger</h2>
-          </div>
-          <div className="relative h-4 w-full bg-axim-black rounded-full border border-axim-steel overflow-hidden mb-4">
-             <div className="absolute top-0 left-0 h-full bg-axim-emerald" style={{ width: '65%' }} />
-          </div>
-          <div className="flex justify-between items-end">
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Current Reserve</p>
-              <p className="text-3xl font-bold text-white">$1,170.00</p>
+        <div className="bg-axim-charcoal border border-axim-steel rounded-xl p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-6 text-axim-emerald">
+              <SafeIcon name="FiZap" className="text-xl" />
+              <h2 className="font-bold text-lg">Snowball Purchase Trigger</h2>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Next Refurb Purchase</p>
-              <p className="text-xl font-bold text-axim-gold">$1,800.00</p>
+            <div className="relative h-4 w-full bg-axim-black rounded-full border border-axim-steel overflow-hidden mb-4">
+               <div className="absolute top-0 left-0 h-full bg-axim-emerald" style={{ width: '65%' }} />
             </div>
+            <div className="flex justify-between items-end mb-6">
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Current Reserve</p>
+                <p className="text-3xl font-bold text-white">$1,170.00</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Next Refurb Purchase</p>
+                <p className="text-xl font-bold text-axim-gold">$1,800.00</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-400 leading-relaxed italic border-t border-axim-steel pt-4">
+              "As cash reserves hit the $1,800 threshold, the system triggers procurement of a refurbished machine to eliminate lease payments and boost CMm to $514.68."
+            </p>
           </div>
-          <p className="mt-6 text-sm text-gray-400 leading-relaxed italic border-t border-axim-steel pt-4">
-            "As cash reserves hit the $1,800 threshold, the system triggers procurement of a refurbished machine to eliminate lease payments and boost CMm to $514.68."
-          </p>
         </div>
+      </div>
+
+      {/* New Live Ledger Feed Component */}
+      <div className="w-full">
+        <LiveLedgerFeed />
       </div>
     </div>
   );
