@@ -25,8 +25,8 @@ const getBaseLocation = (id) => {
 };
 
 export const logisticsService = {
-  async getOptimalRoute() {
-    const machines = await machineService.getAll();
+  async getOptimalRoute(machinesList) {
+    const machines = machinesList || await machineService.getAll();
     const hqLocation = regions['DFW']; // Assume HQ is in DFW
     
     // Simple heuristic: Prioritize CRITICAL, then REFILL

@@ -66,6 +66,13 @@ export default {
                    VALUES (?, ?, ?, ?, ?, ?)`
                 ).bind(crypto.randomUUID(), transactionId, machineId, amount, quantity, isApproved).run();
 
+                // Insert into inventory_logs
+                if (data.SelectionId) {
+                  await env.DB.prepare(
+                    `INSERT INTO inventory_logs (id, machine_id, selection_id) VALUES (?, ?, ?)`
+                  ).bind(crypto.randomUUID(), machineId, data.SelectionId).run();
+                }
+
                 // Update stock in machines table
                 // Assume NewStock is provided in the payload, or we decrement by quantity
                 if (data.NewStock !== undefined) {

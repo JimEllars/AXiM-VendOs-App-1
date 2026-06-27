@@ -36,7 +36,12 @@ export const MachineProvider = ({ children }) => {
 
         const updateData = { last_dex: payload.Timestamp };
 
-        if (payload.Type === 'VEND') {
+        if (payload.Type === 'RESTOCK') {
+          updateData.stock = 100;
+          updateData.temp = 38.0;
+          updateData.status = 'ACTIVE';
+          updateData.dispatchedAt = null;
+        } else if (payload.Type === 'VEND') {
           updateData.stock = payload.NewStock;
 
           ledgerService.recordMicroTransaction({
@@ -55,12 +60,17 @@ export const MachineProvider = ({ children }) => {
         const newStock = updateData.stock !== undefined ? updateData.stock : oldMachine.stock;
         const newTemp = updateData.temp !== undefined ? updateData.temp : oldMachine.temp;
 
-        if (newStock < 30 || newTemp > 40) {
-          updateData.status = 'ONYX_DISPATCHED';
-        } else if (newStock < 60) {
-          updateData.status = 'REFILL';
-        } else {
-          updateData.status = 'ACTIVE';
+        if (payload.Type !== 'RESTOCK') {
+          if (newStock < 30 || newTemp > 40) {
+            updateData.status = 'ONYX_DISPATCHED';
+            if (oldMachine.status !== 'ONYX_DISPATCHED') {
+              updateData.dispatchedAt = Date.now();
+            }
+          } else if (newStock < 60) {
+            updateData.status = 'REFILL';
+          } else {
+            updateData.status = 'ACTIVE';
+          }
         }
 
         // Apply update to mock backend service so subsequent fetches are correct
