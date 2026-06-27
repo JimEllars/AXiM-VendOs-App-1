@@ -28,23 +28,46 @@ export const MachineProvider = ({ children }) => {
   }, [fetchMachines]);
 
   useEffect(() => {
-    startTelemetrySimulator((updatedId, updateData) => {
+    startTelemetrySimulator((payload) => {
       setMachines(prev => {
+        const updatedId = payload.MachineId;
         const oldMachine = prev.find(m => m.id === updatedId);
+        if (!oldMachine) return prev;
 
-        // Detect a vend (stock decrease)
-        if (oldMachine && updateData.stock !== undefined && updateData.stock < oldMachine.stock) {
-          const quantitySold = oldMachine.stock - updateData.stock;
+        const updateData = { last_dex: payload.Timestamp };
+
+        if (payload.Type === 'VEND') {
+          updateData.stock = payload.NewStock;
+
           ledgerService.recordMicroTransaction({
             machineId: updatedId,
-            quantity: quantitySold,
-            timestamp: new Date().toISOString()
+            quantity: payload.Quantity,
+            amount: payload.Amount,
+            transactionId: payload.NayaxTransactionId,
+            timestamp: payload.Timestamp
           });
+        } else if (payload.Type === 'TEMP_READING') {
+          updateData.temp = payload.NewTemp;
         }
+
+        const newStock = updateData.stock !== undefined ? updateData.stock : oldMachine.stock;
+        const newTemp = updateData.temp !== undefined ? updateData.temp : oldMachine.temp;
+
+        if (newStock < 30 || newTemp > 40) {
+          updateData.status = 'ONYX_DISPATCHED';
+        } else if (newStock < 60) {
+          updateData.status = 'REFILL';
+        } else {
+          updateData.status = 'ACTIVE';
+        }
+
+        // Apply update to mock backend service so subsequent fetches are correct
+        machineService.update(updatedId, updateData).catch(err => console.error('Failed to update machine service', err));
 
         return prev.map(m => m.id === updatedId ? { ...m, ...updateData } : m);
       });
-      setPulseId(updatedId);
+
+      setPulseId(payload.MachineId);
       setTimeout(() => setPulseId(null), 2000);
     });
 

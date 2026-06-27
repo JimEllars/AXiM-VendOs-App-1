@@ -2,6 +2,11 @@ import { machineService } from '../services/machineService';
 
 let intervalId = null;
 
+const generateHMAC = (payload) => {
+  // Simulating an HMAC generation for realism
+  return 'hmac_sha256_' + btoa(JSON.stringify(payload)).substring(0, 32);
+};
+
 export const startTelemetrySimulator = (callback) => {
   if (intervalId) return;
 
@@ -14,29 +19,33 @@ export const startTelemetrySimulator = (callback) => {
       const randomIndex = Math.floor(Math.random() * machines.length);
       const machine = machines[randomIndex];
 
-      // Simulate a stock decrease or temp change
-      const isStockChange = Math.random() > 0.5;
+      // Simulate a vend (stock decrease) or temp change
+      const isVend = Math.random() > 0.5;
 
-      const updateData = {};
-      if (isStockChange) {
-         updateData.stock = Math.max(0, machine.stock - Math.floor(Math.random() * 3 + 1));
+      const payload = {
+        NayaxTransactionId: crypto.randomUUID(),
+        MachineId: machine.id,
+        IsApproved: true,
+        Timestamp: new Date().toISOString()
+      };
+
+      if (isVend) {
+         payload.Type = 'VEND';
+         payload.Item = 'Simulated Item';
+         payload.Amount = 2.50;
+         payload.Quantity = Math.floor(Math.random() * 3 + 1);
+         payload.NewStock = Math.max(0, machine.stock - payload.Quantity);
       } else {
-         updateData.temp = parseFloat((machine.temp + (Math.random() * 2 - 1)).toFixed(1));
+         payload.Type = 'TEMP_READING';
+         payload.NewTemp = parseFloat((machine.temp + (Math.random() * 2 - 1)).toFixed(1));
       }
 
-      updateData.last_dex = new Date().toISOString();
+      const hmac = generateHMAC(payload);
+      console.log(`[Telemetry Sim] Webhook Dispatched | HMAC: ${hmac}`, payload);
 
-      if (updateData.stock < 30 || updateData.temp > 40) {
-        updateData.status = 'ONYX_DISPATCHED';
-        console.warn(JSON.stringify({ severity: 'HIGH', tag: 'AXIM_VENDOS', message: 'Onyx Mk3 Swarm Dispatched' }));
-      } else if (updateData.stock < 60) updateData.status = 'REFILL';
-      else updateData.status = 'ACTIVE';
-
-      await machineService.update(machine.id, updateData);
-
-      // Notify UI
+      // Notify UI via callback with raw payload
       if (callback) {
-        callback(machine.id, updateData);
+        callback(payload);
       }
 
     } catch (err) {

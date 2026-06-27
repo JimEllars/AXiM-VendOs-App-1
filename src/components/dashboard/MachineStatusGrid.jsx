@@ -9,7 +9,7 @@ const StatusBadge = ({ status }) => {
     ACTIVE: 'bg-axim-emerald/10 text-axim-emerald border-axim-emerald/20',
     REFILL: 'bg-axim-gold/10 text-axim-gold border-axim-gold/20',
     CRITICAL: 'bg-axim-crimson/10 text-axim-crimson border-axim-crimson/20 pulse-fast',
-    ONYX_DISPATCHED: 'bg-purple-900/40 text-purple-400 border-purple-500/50 animate-pulse',
+    ONYX_DISPATCHED: 'bg-axim-crimson/20 text-axim-gold border-axim-gold/50 animate-pulse font-bold',
   };
   return (
     <span className={`px-2.5 py-1 text-[10px] font-bold tracking-wider rounded border uppercase ${styles[status] || styles.ACTIVE}`}>
@@ -54,11 +54,11 @@ export default function MachineStatusGrid() {
               pulseId === machine.id
                 ? 'border-axim-emerald shadow-[0_0_15px_rgba(0,229,163,0.3)]'
                 : machine.status === 'ONYX_DISPATCHED'
-                ? 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                ? 'border-axim-crimson shadow-[0_0_20px_rgba(255,59,48,0.5)] animate-pulse'
                 : machine.status === 'CRITICAL'
-                ? 'border-axim-crimson shadow-[0_0_15px_rgba(255,51,102,0.3)]'
+                ? 'border-axim-crimson shadow-[0_0_15px_rgba(255,59,48,0.3)]'
                 : machine.status === 'REFILL'
-                ? 'border-axim-gold shadow-[0_0_15px_rgba(255,184,0,0.3)]'
+                ? 'border-axim-gold shadow-[0_0_15px_rgba(212,175,55,0.3)]'
                 : 'border-axim-steel hover:border-axim-emerald/30'
             }`}
           >
@@ -70,7 +70,7 @@ export default function MachineStatusGrid() {
                    exit={{ opacity: 0 }}
                    transition={{ duration: 1 }}
                    className={`absolute inset-0 pointer-events-none ${
-                     machine.status === 'ONYX_DISPATCHED' ? 'bg-purple-500/20' :
+                     machine.status === 'ONYX_DISPATCHED' ? 'bg-axim-crimson/20' :
                      machine.status === 'CRITICAL' ? 'bg-axim-crimson/20' :
                      machine.status === 'REFILL' ? 'bg-axim-gold/20' :
                      'bg-axim-emerald/20'
