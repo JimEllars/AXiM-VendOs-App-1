@@ -1,5 +1,6 @@
 let transactions = [];
 let listeners = [];
+let totalTransactions = 0;
 
 export const ledgerService = {
   subscribe(listener) {
@@ -13,6 +14,10 @@ export const ledgerService = {
     return [...transactions];
   },
 
+  getTotalCount() {
+    return totalTransactions;
+  },
+
   async recordMicroTransaction(vendDetails) {
     try {
       console.log(`[Ledger Service] Recording micro-transaction:`, vendDetails);
@@ -24,7 +29,11 @@ export const ledgerService = {
         timestamp: new Date().toISOString()
       };
 
+      totalTransactions++;
       transactions.push(newTx);
+      if (transactions.length > 50) {
+        transactions.shift(); // Keep only last 50
+      }
 
       listeners.forEach(listener => listener(transactions));
 
