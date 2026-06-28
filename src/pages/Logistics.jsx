@@ -3,8 +3,21 @@ import { logisticsService } from '../services/logisticsService';
 import SafeIcon from '../common/SafeIcon';
 import { motion } from 'framer-motion';
 import { useMachines } from '../hooks/useMachines';
+import { machineService } from '../services/machineService';
 
 export default function Logistics() {
+  const [completedStops, setCompletedStops] = useState(new Set());
+
+  const handleCompleteService = async (machineId) => {
+    try {
+      const updateData = { stock: 100, temp: 38.0, status: 'ACTIVE' };
+      await machineService.update(machineId, updateData);
+      setCompletedStops(prev => new Set([...prev, machineId]));
+    } catch (err) {
+      console.error('Failed to complete service', err);
+    }
+  };
+
   const { machines, loading: machinesLoading } = useMachines();
   const [route, setRoute] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +60,7 @@ export default function Logistics() {
                   <p className="text-white font-medium">No service required</p>
                   <p className="text-sm text-gray-500">All machines are within optimal stock thresholds.</p>
                 </div>
-              ) : route.map((stop, idx) => (
+              ) : route.filter(stop => !completedStops.has(stop.id)).map((stop, idx) => (
                 <motion.div 
                   key={stop.id}
                   initial={{ opacity: 0, x: -10 }}
@@ -81,6 +94,11 @@ export default function Logistics() {
                         <SafeIcon name="FiClock" />
                         <span>{stop.estimated_time} mins travel</span>
                       </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-axim-steel flex justify-end">
+                      <button onClick={() => handleCompleteService(stop.id)} className="bg-axim-steel/50 hover:bg-axim-emerald text-white hover:text-axim-black text-xs font-bold py-1.5 px-3 rounded flex items-center gap-2 transition-colors">
+                        <SafeIcon name="FiCheck" /> Complete Service
+                      </button>
                     </div>
                   </div>
                 </motion.div>

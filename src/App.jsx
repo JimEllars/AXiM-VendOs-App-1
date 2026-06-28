@@ -8,11 +8,13 @@ import Logistics from './pages/Logistics';
 import Settings from './pages/Settings';
 import FleetMap from './pages/FleetMap';
 import { MachineProvider } from './context/MachineContext';
+import { AuthProvider } from './context/AuthContext';
 import ErrorBoundary from './components/layout/ErrorBoundary';
 
 function App() {
   return (
     <ErrorBoundary>
+      <AuthProvider>
       <MachineProvider>
         <Router>
           <Routes>
@@ -28,6 +30,7 @@ function App() {
           </Routes>
         </Router>
       </MachineProvider>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }

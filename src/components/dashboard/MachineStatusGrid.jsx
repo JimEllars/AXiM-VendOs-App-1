@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SafeIcon from '../../common/SafeIcon';
 import { useMachines } from '../../hooks/useMachines';
+import { machineService } from '../../services/machineService';
 import LoadingState from '../layout/LoadingState';
 
 const StatusBadge = ({ status }) => {
@@ -18,8 +19,47 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+const QuickActionsMenu = ({ machine, onUpdate }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const handleRestock = async (e) => {
+    e.stopPropagation();
+    setIsOpen(false);
+    const updateData = { stock: 100, temp: 38.0, status: 'ACTIVE' };
+    await machineService.update(machine.id, updateData);
+    if (onUpdate) onUpdate();
+  };
+
+  return (
+    <div className="absolute top-0 right-0 z-20">
+      <button
+        onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
+        className="text-gray-500 hover:text-white p-1 rounded hover:bg-axim-steel/50 transition-colors"
+      >
+        <SafeIcon name="FiMoreVertical" />
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="absolute right-0 mt-1 w-56 bg-axim-charcoal border border-axim-steel rounded shadow-xl overflow-hidden"
+          >
+            <button
+              onClick={handleRestock}
+              className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-axim-steel/50 hover:text-axim-emerald transition-colors flex items-center gap-2"
+            >
+              <SafeIcon name="FiRefreshCw" /> Force Restock / Clear Faults
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 export default function MachineStatusGrid() {
-  const { machines, loading, pulseId } = useMachines();
+  const { machines, loading, pulseId, refresh } = useMachines();
 
   if (loading && machines.length === 0) return (
     <div className="bg-axim-charcoal border border-axim-steel rounded-xl h-96 flex items-center justify-center">
@@ -85,7 +125,10 @@ export default function MachineStatusGrid() {
                 <p className="text-sm font-medium text-gray-200 group-hover:text-axim-emerald transition-colors">{machine.location}</p>
                 <p className="text-[10px] text-gray-600 uppercase mt-0.5">{machine.model}</p>
               </div>
-              <StatusBadge status={machine.status} />
+              <div className="flex flex-col items-end gap-2">
+                <StatusBadge status={machine.status} />
+                <QuickActionsMenu machine={machine} onUpdate={refresh} />
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-2 relative z-10">
               <div className="bg-axim-charcoal rounded p-2 text-center border border-axim-steel/50">
