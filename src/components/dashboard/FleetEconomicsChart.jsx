@@ -3,15 +3,20 @@ import ReactECharts from 'echarts-for-react';
 import { economicsService } from '../../services/economicsService';
 import SafeIcon from '../../common/SafeIcon';
 import LoadingState from '../layout/LoadingState';
+import { useSettings } from '../../context/SettingsContext';
 
 export default function FleetEconomicsChart() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const settingsContext = useSettings();
 
   useEffect(() => {
     let mounted = true;
-    economicsService.getFleetEconomics()
+    if (settingsContext.loading) return;
+
+    setLoading(true);
+    economicsService.getFleetEconomics(settingsContext)
       .then(res => {
         if (mounted) {
           setData(res);
@@ -25,7 +30,7 @@ export default function FleetEconomicsChart() {
         }
       })
     return () => mounted = false;
-  }, [])
+  }, [settingsContext.settings, settingsContext.loading])
 
   if (loading) {
     return (

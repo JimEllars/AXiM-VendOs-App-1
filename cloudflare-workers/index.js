@@ -31,6 +31,26 @@ export default {
       }
     }
 
+    if (request.method === 'GET' && url.pathname.includes('/v1/internal/vending/inventory')) {
+      try {
+        if (!env.DB) {
+           return new Response(JSON.stringify({ error: 'Database not bound' }), {
+             status: 500,
+             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+           });
+        }
+        const { results } = await env.DB.prepare('SELECT * FROM inventory_logs ORDER BY timestamp DESC').all();
+        return new Response(JSON.stringify(results), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    }
 
     if (request.method === 'GET' && url.pathname.includes('/v1/internal/vending/ledger')) {
       try {
@@ -54,7 +74,6 @@ export default {
     }
 
     if (request.method !== 'POST') {
-
       return new Response('Method Not Allowed', { status: 405 });
     }
 

@@ -8,6 +8,7 @@ import Logistics from './pages/Logistics';
 import Settings from './pages/Settings';
 import FleetMap from './pages/FleetMap';
 import { MachineProvider } from './context/MachineContext';
+import { SettingsProvider } from './context/SettingsContext';
 import { AuthProvider } from './context/AuthContext';
 import ErrorBoundary from './components/layout/ErrorBoundary';
 
@@ -15,7 +16,8 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-      <MachineProvider>
+      <SettingsProvider>
+        <MachineProvider>
         <Router>
           <Routes>
             <Route path="/" element={<DashboardLayout />}>
@@ -30,6 +32,7 @@ function App() {
           </Routes>
         </Router>
       </MachineProvider>
+        </SettingsProvider>
       </AuthProvider>
     </ErrorBoundary>
   );
