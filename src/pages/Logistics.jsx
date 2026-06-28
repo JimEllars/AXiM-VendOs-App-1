@@ -9,7 +9,7 @@ export default function Logistics() {
   const { machines, loading: machinesLoading, refresh } = useMachines();
   const [completedStops, setCompletedStops] = useState(new Set());
 
-  const handleCompleteService = async (machineId) => {
+  const handleCompleteStop = async (machineId) => {
     try {
       const updateData = { stock: 100, temp: 38.0, status: 'ACTIVE' };
       await machineService.update(machineId, updateData);
@@ -97,7 +97,7 @@ export default function Logistics() {
                       </div>
                     </div>
                     <div className="mt-4 pt-4 border-t border-axim-steel flex justify-end">
-                      <button onClick={() => handleCompleteService(stop.id)} className="bg-axim-steel/50 hover:bg-axim-emerald text-white hover:text-axim-black text-xs font-bold py-1.5 px-3 rounded flex items-center gap-2 transition-colors">
+                      <button onClick={() => handleCompleteStop(stop.id)} className="bg-axim-steel/50 hover:bg-axim-emerald text-white hover:text-axim-black text-xs font-bold py-1.5 px-3 rounded flex items-center gap-2 transition-colors">
                         <SafeIcon name="FiCheck" /> Complete Service
                       </button>
                     </div>
