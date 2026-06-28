@@ -1,6 +1,36 @@
 export default {
   async fetch(request, env, ctx) {
-    // Only accept POST requests
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Nayax-Signature',
+      } });
+    }
+
+    const url = new URL(request.url);
+
+    if (request.method === 'GET' && url.pathname.includes('/v1/internal/vending/machines')) {
+      try {
+        if (!env.DB) {
+           return new Response(JSON.stringify({ error: 'Database not bound' }), {
+             status: 500,
+             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+           });
+        }
+        const { results } = await env.DB.prepare('SELECT * FROM machines ORDER BY updated_at DESC').all();
+        return new Response(JSON.stringify(results), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    }
+
     if (request.method !== 'POST') {
       return new Response('Method Not Allowed', { status: 405 });
     }

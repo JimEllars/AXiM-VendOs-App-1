@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import SafeIcon from '../../common/SafeIcon';
+import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
   { name: 'Overviews', icon: 'FiGrid', path: '/' },
@@ -12,6 +13,8 @@ const navItems = [
 ];
 
 export default function Sidebar() {
+  const { role } = useAuth();
+  const visibleNavItems = role === 'DRIVER' ? navItems.filter(item => ['Fleet Map', 'Logistics'].includes(item.name)) : navItems;
   return (
     <aside className="w-64 bg-axim-charcoal border-r border-axim-steel flex flex-col h-screen sticky top-0">
       <div className="p-6 flex items-center gap-3 border-b border-axim-steel">
@@ -25,7 +28,7 @@ export default function Sidebar() {
       </div>
       
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => (
+        {visibleNavItems.map((item) => (
           <NavLink
             key={item.name}
             to={item.path}

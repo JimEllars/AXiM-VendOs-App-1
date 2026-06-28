@@ -1,9 +1,11 @@
 import React from 'react';
 import SafeIcon from '../../common/SafeIcon';
 import { useAnalytics } from '../../hooks/useAnalytics';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Header() {
   const { metrics, loading } = useAnalytics();
+  const { role, toggleRole } = useAuth();
 
   return (
     <header className="h-16 border-b border-axim-steel bg-axim-black/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-10">
@@ -19,9 +21,9 @@ export default function Header() {
         </div>
         
         <div className="flex items-center gap-3 border-l border-axim-steel pl-6">
-          <div className="text-right">
-            <p className="text-sm font-medium text-white">Admin User</p>
-            <p className="text-xs text-gray-400">Corporate Administrator</p>
+          <div className="text-right cursor-pointer" onClick={toggleRole}>
+            <p className="text-sm font-medium text-white">{role === 'ADMIN' ? 'Admin User' : 'Route Driver'}</p>
+            <p className="text-xs text-gray-400">{role === 'ADMIN' ? 'Corporate Administrator' : 'Field Operations'}</p>
           </div>
           <div className="w-9 h-9 rounded-full bg-axim-steel flex items-center justify-center text-gray-300 border border-gray-700">
             <SafeIcon name="FiUser" />
