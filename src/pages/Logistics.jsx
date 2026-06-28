@@ -6,6 +6,7 @@ import { useMachines } from '../hooks/useMachines';
 import { machineService } from '../services/machineService';
 
 export default function Logistics() {
+  const { machines, loading: machinesLoading, refresh } = useMachines();
   const [completedStops, setCompletedStops] = useState(new Set());
 
   const handleCompleteService = async (machineId) => {
@@ -13,12 +14,12 @@ export default function Logistics() {
       const updateData = { stock: 100, temp: 38.0, status: 'ACTIVE' };
       await machineService.update(machineId, updateData);
       setCompletedStops(prev => new Set([...prev, machineId]));
+      if (refresh) refresh();
     } catch (err) {
       console.error('Failed to complete service', err);
     }
   };
 
-  const { machines, loading: machinesLoading } = useMachines();
   const [route, setRoute] = useState([]);
   const [loading, setLoading] = useState(true);
 

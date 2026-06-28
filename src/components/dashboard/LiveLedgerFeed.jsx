@@ -5,15 +5,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function LiveLedgerFeed() {
   const [transactions, setTransactions] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     const unsubscribe = ledgerService.subscribe((txs) => {
-      // Keep only the most recent 20 for performance in UI
-      setTransactions([...txs].reverse().slice(0, 20));
+      // Keep only the most recent 50 for performance in UI
+      setTransactions([...txs].reverse().slice(0, 50));
+      setTotalCount(ledgerService.getTotalCount());
     });
 
     // Also get existing
-    setTransactions(ledgerService.getTransactions().reverse().slice(0, 20));
+    setTransactions(ledgerService.getTransactions().reverse().slice(0, 50));
+    setTotalCount(ledgerService.getTotalCount());
 
     return () => unsubscribe();
   }, []);
@@ -75,7 +78,7 @@ export default function LiveLedgerFeed() {
       <div className="p-3 bg-axim-black border-t border-axim-steel flex justify-between items-center text-sm">
         <span className="text-gray-400 font-medium">Session Ad Spend Generated</span>
         <span className="text-axim-emerald font-bold font-mono">
-          {formatCurrency(transactions.length * 0.15)}
+          {formatCurrency(totalCount * 0.15)}
         </span>
       </div>
     </div>
