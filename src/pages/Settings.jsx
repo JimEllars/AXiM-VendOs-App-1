@@ -1,30 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { settingsService } from '../services/settingsService';
+import React, { useState } from 'react';
+import { useSettings } from '../context/SettingsContext';
 import SafeIcon from '../common/SafeIcon';
-import { motion } from 'framer-motion';
 
 export default function Settings() {
-  const [settings, setSettings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
-    setLoading(true);
-    await settingsService.bootstrap();
-    const data = await settingsService.getAll();
-    setSettings(data);
-    setLoading(false);
-  };
+  const { settings, loading, updateSetting } = useSettings();
+  const [savingKey, setSavingKey] = useState(null);
 
   const handleUpdate = async (key, value) => {
-    setSaving(true);
-    await settingsService.updateValue(key, value);
-    await loadSettings();
-    setSaving(false);
+    setSavingKey(key);
+    try {
+      await updateSetting(key, value);
+    } catch (err) {
+      console.error('Failed to update setting', err);
+    } finally {
+      setSavingKey(null);
+    }
   };
 
   return (
@@ -51,12 +41,23 @@ export default function Settings() {
                 <p className="text-xs text-gray-500">{s.description}</p>
               </div>
               <div className="flex items-center gap-3">
-                <input 
-                  type="text"
-                  defaultValue={s.value}
-                  onBlur={(e) => handleUpdate(s.key, e.target.value)}
-                  className="bg-axim-charcoal border border-axim-steel rounded px-3 py-1.5 text-sm font-mono text-axim-emerald outline-none focus:border-axim-emerald/50 w-32 text-right"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    defaultValue={s.value}
+                    onBlur={(e) => {
+                      if (e.target.value !== s.value) {
+                        handleUpdate(s.key, e.target.value);
+                      }
+                    }}
+                    className="bg-axim-charcoal border border-axim-steel rounded px-3 py-1.5 text-sm font-mono text-axim-emerald outline-none focus:border-axim-emerald/50 w-32 text-right pr-8"
+                  />
+                  {savingKey === s.key && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                       <div className="w-3 h-3 border-2 border-axim-emerald border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
                 <div className="text-[10px] text-gray-600 uppercase font-mono">
                   Last Sync: {new Date(s.updated_at).toLocaleDateString()}
                 </div>
@@ -76,7 +77,7 @@ export default function Settings() {
             <div className="w-2 h-2 rounded-full bg-axim-emerald animate-pulse" />
             Connected to Google Sheets
           </div>
-          <span className="text-gray-500 font-mono text-xs">ID: {import.meta.env.VITE_SPREADSHEET_ID.slice(0, 8)}...</span>
+          <span className="text-gray-500 font-mono text-xs">ID: {import.meta.env.VITE_SPREADSHEET_ID?.slice(0, 8)}...</span>
         </div>
       </div>
     </div>

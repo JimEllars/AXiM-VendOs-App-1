@@ -12,19 +12,34 @@ const navItems = [
   { name: 'Settings', icon: 'FiSettings', path: '/settings' },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, setIsOpen }) {
   const { role } = useAuth();
   const visibleNavItems = role === 'DRIVER' ? navItems.filter(item => ['Fleet Map', 'Logistics'].includes(item.name)) : navItems;
+
   return (
-    <aside className="w-64 bg-axim-charcoal border-r border-axim-steel flex flex-col h-screen sticky top-0">
-      <div className="p-6 flex items-center gap-3 border-b border-axim-steel">
-        <div className="w-8 h-8 bg-axim-emerald rounded uppercase flex items-center justify-center text-axim-black font-bold text-xl">
-          V
+    <aside
+      className={`
+        fixed inset-y-0 left-0 z-30 w-64 bg-axim-charcoal border-r border-axim-steel flex flex-col h-screen transform transition-transform duration-300 ease-in-out
+        md:relative md:translate-x-0
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}
+    >
+      <div className="p-6 flex items-center justify-between border-b border-axim-steel">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-axim-emerald rounded uppercase flex items-center justify-center text-axim-black font-bold text-xl">
+            V
+          </div>
+          <div>
+            <h1 className="font-bold text-lg tracking-tight text-white">VendOS</h1>
+            <p className="text-xs text-gray-400">by AXiM Capital</p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-bold text-lg tracking-tight text-white">VendOS</h1>
-          <p className="text-xs text-gray-400">by AXiM Capital</p>
-        </div>
+        <button
+          onClick={() => setIsOpen(false)}
+          className="md:hidden text-gray-400 hover:text-white"
+        >
+          <SafeIcon name="FiX" className="text-xl" />
+        </button>
       </div>
       
       <nav className="flex-1 p-4 space-y-1">
@@ -32,6 +47,7 @@ export default function Sidebar() {
           <NavLink
             key={item.name}
             to={item.path}
+            onClick={() => setIsOpen(false)}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors duration-200 ${
                 isActive 
