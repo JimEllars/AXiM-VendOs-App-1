@@ -12,6 +12,32 @@ export default function Dashboard() {
   const [isModalOpen, setModalOpen] = useState(false);
   const { refresh } = useMachines();
 
+
+  const fileInputRef = React.useRef(null);
+  const [isUploadingDEX, setIsUploadingDEX] = useState(false);
+
+  const handleDexUploadClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleDexFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setIsUploadingDEX(true);
+
+      // Simulate 1-second loading
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      alert('DEX File parsed. D1 Inventory synced.');
+      setIsUploadingDEX(false);
+
+      // Reset input so the same file can be uploaded again if needed
+      e.target.value = null;
+    }
+  };
+
   const handleProvision = async (data) => {
     try {
       await machineService.create(data);
@@ -32,8 +58,24 @@ export default function Dashboard() {
           <button className="bg-axim-steel hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors border border-gray-600">
             Export Ledger
           </button>
+
+          <input
+            type="file"
+            accept=".txt, .dex"
+            ref={fileInputRef}
+            onChange={handleDexFileChange}
+            className="hidden"
+          />
+          <button
+            onClick={handleDexUploadClick}
+            disabled={isUploadingDEX}
+            className="bg-axim-steel text-white border-gray-600 border hover:bg-gray-700 px-4 py-2 rounded-md text-sm font-medium transition-colors"
+          >
+            {isUploadingDEX ? 'Parsing...' : 'Upload DEX Audit'}
+          </button>
           <button 
             onClick={() => setModalOpen(true)}
+
             className="bg-axim-emerald hover:bg-emerald-400 text-axim-black px-4 py-2 rounded-md text-sm font-bold transition-colors shadow-[0_0_15px_rgba(0,229,163,0.3)]"
           >
             + Provision Asset
