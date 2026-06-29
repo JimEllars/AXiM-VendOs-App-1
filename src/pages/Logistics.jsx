@@ -4,15 +4,22 @@ import SafeIcon from '../common/SafeIcon';
 import { motion } from 'framer-motion';
 import { useMachines } from '../hooks/useMachines';
 import { machineService } from '../services/machineService';
+import { inventoryService } from '../services/inventoryService';
 
 export default function Logistics() {
   const { machines, loading: machinesLoading, refresh } = useMachines();
   const [completedStops, setCompletedStops] = useState(new Set());
 
-  const handleCompleteStop = async (machineId) => {
+  const handleCompleteStop = async (machineId, currentStock) => {
     try {
+      const restockAmount = 100 - currentStock;
       const updateData = { stock: 100, temp: 38.0, status: 'ACTIVE' };
       await machineService.update(machineId, updateData);
+
+      if (restockAmount > 0) {
+        await inventoryService.deplete(restockAmount);
+      }
+
       setCompletedStops(prev => new Set([...prev, machineId]));
       if (refresh) refresh();
     } catch (err) {
@@ -69,9 +76,7 @@ export default function Logistics() {
                   transition={{ delay: idx * 0.1 }}
                   className="flex gap-6 relative z-10"
                 >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border-2 ${
-                    stop.status === 'CRITICAL' ? 'bg-axim-crimson border-red-400 text-white' : 'bg-axim-gold border-yellow-300 text-axim-black'
-                  }`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border-2 ${stop.status === 'CRITICAL' ? 'bg-axim-crimson border-red-400 text-white' : 'bg-axim-gold border-yellow-300 text-axim-black'}`}>
                     {idx + 1}
                   </div>
                   <div className="flex-1 bg-axim-black border border-axim-steel rounded-xl p-4 hover:border-axim-emerald/30 transition-all">
@@ -80,9 +85,7 @@ export default function Logistics() {
                         <h3 className="font-bold text-gray-100">{stop.location}</h3>
                         <p className="text-xs text-gray-500 font-mono mt-1">{stop.id}</p>
                       </div>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                        stop.status === 'CRITICAL' ? 'border-axim-crimson text-axim-crimson' : 'border-axim-gold text-axim-gold'
-                      }`}>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${stop.status === 'CRITICAL' ? 'border-axim-crimson text-axim-crimson' : 'border-axim-gold text-axim-gold'}`}>
                         {stop.status}
                       </span>
                     </div>
@@ -97,7 +100,7 @@ export default function Logistics() {
                       </div>
                     </div>
                     <div className="mt-4 pt-4 border-t border-axim-steel flex justify-end">
-                      <button onClick={() => handleCompleteStop(stop.id)} className="bg-axim-steel/50 hover:bg-axim-emerald text-white hover:text-axim-black text-xs font-bold py-1.5 px-3 rounded flex items-center gap-2 transition-colors">
+                      <button onClick={() => handleCompleteStop(stop.id, stop.stock)} className="bg-axim-steel/50 hover:bg-axim-emerald text-white hover:text-axim-black text-xs font-bold py-1.5 px-3 rounded flex items-center gap-2 transition-colors">
                         <SafeIcon name="FiCheck" /> Complete Service
                       </button>
                     </div>

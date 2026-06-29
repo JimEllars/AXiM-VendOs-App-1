@@ -38,3 +38,11 @@ CREATE INDEX IF NOT EXISTS idx_machines_status ON machines(status);
 CREATE INDEX IF NOT EXISTS idx_inventory_logs_machine_id ON inventory_logs(machine_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_machine_id ON transactions(machine_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_timestamp ON transactions(timestamp);
+
+CREATE TABLE IF NOT EXISTS settings (
+    id TEXT PRIMARY KEY,
+    key TEXT NOT NULL UNIQUE,
+    value TEXT NOT NULL,
+    description TEXT,
+    updated_at TEXT DEFAULT (datetime('now'))
+);

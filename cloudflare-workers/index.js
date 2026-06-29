@@ -73,6 +73,54 @@ export default {
       }
     }
 
+
+    if (request.method === 'GET' && url.pathname.includes('/v1/internal/vending/settings')) {
+      try {
+        if (!env.DB) {
+           return new Response(JSON.stringify({ error: 'Database not bound' }), {
+             status: 500,
+             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+           });
+        }
+        const { results } = await env.DB.prepare('SELECT * FROM settings ORDER BY key ASC').all();
+        return new Response(JSON.stringify(results), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    }
+
+    if (request.method === 'PUT' && url.pathname.match(/\/v1\/internal\/vending\/settings\/[^/]+$/)) {
+      try {
+        if (!env.DB) {
+           return new Response(JSON.stringify({ error: 'Database not bound' }), {
+             status: 500,
+             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+           });
+        }
+        const key = url.pathname.split('/').pop();
+        const updateData = await request.json();
+
+        await env.DB.prepare('UPDATE settings SET value = ?, updated_at = datetime(\'now\') WHERE key = ?')
+          .bind(updateData.value, key).run();
+
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    }
+
     if (request.method !== 'POST') {
       return new Response('Method Not Allowed', { status: 405 });
     }

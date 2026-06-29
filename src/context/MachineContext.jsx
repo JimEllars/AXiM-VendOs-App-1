@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { machineService } from '../services/machineService';
 import { startTelemetrySimulator, stopTelemetrySimulator } from '../utils/telemetrySimulator';
 import { ledgerService } from '../services/ledgerService';
+import { inventoryService } from '../services/inventoryService';
 
 export const MachineContext = createContext(null);
 
@@ -37,10 +38,15 @@ export const MachineProvider = ({ children }) => {
         const updateData = { last_dex: payload.Timestamp };
 
         if (payload.Type === 'RESTOCK') {
+          const restockAmount = 100 - oldMachine.stock;
           updateData.stock = 100;
           updateData.temp = 38.0;
           updateData.status = 'ACTIVE';
           updateData.dispatchedAt = null;
+
+          if (restockAmount > 0) {
+            inventoryService.deplete(restockAmount).catch(err => console.error('Failed to deplete inventory', err));
+          }
         } else if (payload.Type === 'VEND') {
           updateData.stock = payload.NewStock;
 
