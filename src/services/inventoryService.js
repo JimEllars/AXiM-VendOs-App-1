@@ -2,11 +2,38 @@ import { fetchAdapter } from './mocks/adapter';
 
 const API_BASE = 'https://api.aximcapital.com/v1/internal/vending';
 
+let listeners = [];
+
 export const inventoryService = {
+  subscribe(listener) {
+    listeners.push(listener);
+    return () => {
+      listeners = listeners.filter(l => l !== listener);
+    };
+  },
+
   async getAll() {
     const res = await fetchAdapter(`${API_BASE}/inventory`);
     if (!res.ok) throw new Error('Failed to fetch inventory');
-    return res.json();
+    const data = await res.json();
+    this.notify(data);
+    return data;
+  },
+
+  async deplete(quantity) {
+    const res = await fetchAdapter(`${API_BASE}/inventory/deplete`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantity })
+    });
+    if (!res.ok) throw new Error('Failed to deplete inventory');
+    const data = await res.json();
+    this.notify(data);
+    return data;
+  },
+
+  notify(data) {
+    listeners.forEach(listener => listener(data));
   },
 
   async seed() {

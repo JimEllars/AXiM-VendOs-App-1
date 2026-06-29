@@ -8,6 +8,8 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let unsubscribe;
+
     inventoryService.getAll().then(data => {
       if (data.length === 0) {
         inventoryService.seed().then(() => inventoryService.getAll().then(setItems));
@@ -16,6 +18,14 @@ export default function Inventory() {
       }
       setLoading(false);
     });
+
+    unsubscribe = inventoryService.subscribe((newData) => {
+      setItems(newData);
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   return (
@@ -68,7 +78,7 @@ export default function Inventory() {
                 <td className="p-4">
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 bg-axim-steel rounded-full overflow-hidden min-w-[60px]">
-                      <div className="h-full bg-axim-emerald" style={{ width: `${item.stock_level}%` }} />
+                      <div className="h-full bg-axim-emerald" style={{ width: `${typeof item.stock_level === 'number' ? item.stock_level.toFixed(1) : item.stock_level}%` }} />
                     </div>
                     <span className="text-xs text-gray-400">{item.stock_level}%</span>
                   </div>
