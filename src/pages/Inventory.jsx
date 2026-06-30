@@ -3,6 +3,57 @@ import { inventoryService } from '../services/inventoryService';
 import SafeIcon from '../common/SafeIcon';
 import { motion } from 'framer-motion';
 
+const EditableRetailCell = ({ item, onSave }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [value, setValue] = useState(item.retail_price.toFixed(2));
+
+  const handleSave = () => {
+    setIsEditing(false);
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue !== item.retail_price) {
+      onSave(item, numValue);
+    } else {
+      setValue(item.retail_price.toFixed(2)); // Reset if invalid
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+      setValue(item.retail_price.toFixed(2));
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <td className="p-4 text-right font-mono text-gray-300">
+        $<input
+          type="number"
+          step="0.01"
+          autoFocus
+          className="bg-axim-black border border-axim-steel text-white rounded px-2 py-1 w-20 text-right outline-none focus:border-axim-emerald"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={handleKeyDown}
+        />
+      </td>
+    );
+  }
+
+  return (
+    <td
+      className="p-4 text-right font-mono text-gray-300 cursor-pointer hover:text-white group flex items-center justify-end gap-2"
+      onClick={() => setIsEditing(true)}
+    >
+      <SafeIcon name="FiEdit2" className="opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 text-axim-emerald" />
+      ${item.retail_price.toFixed(2)}
+    </td>
+  );
+};
+
 export default function Inventory() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +78,33 @@ export default function Inventory() {
       if (unsubscribe) unsubscribe();
     };
   }, []);
+
+  const handleSaveItem = async (item, newRetailPrice) => {
+    const marginNum = ((newRetailPrice - item.unit_cogs) / newRetailPrice) * 100;
+    const marginStr = marginNum.toFixed(2) + '%';
+
+    // Optimistic UI update
+    setItems(currentItems =>
+      currentItems.map(i =>
+        i.id === item.id
+          ? { ...i, retail_price: newRetailPrice, margin: marginStr }
+          : i
+      )
+    );
+
+    try {
+      await inventoryService.updateItem(item.id, {
+        retail_price: newRetailPrice,
+        margin: marginStr
+      });
+      // Optionally trigger a full refresh if not relying entirely on subscriptions for this update
+      inventoryService.getAll().then(setItems);
+    } catch (err) {
+      console.error('Failed to update price:', err);
+      // Revert on error (could implement full revert logic here)
+      inventoryService.getAll().then(setItems);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -73,7 +151,7 @@ export default function Inventory() {
                   </span>
                 </td>
                 <td className="p-4 text-right font-mono text-gray-300">${item.unit_cogs.toFixed(2)}</td>
-                <td className="p-4 text-right font-mono text-gray-300">${item.retail_price.toFixed(2)}</td>
+                <EditableRetailCell item={item} onSave={handleSaveItem} />
                 <td className="p-4 text-right font-mono text-axim-emerald">{item.margin}</td>
                 <td className="p-4">
                   <div className="flex items-center gap-2">

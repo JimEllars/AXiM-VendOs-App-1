@@ -58,8 +58,9 @@ export default function FleetMap() {
   // Filter to just the priority machines (REFILL or CRITICAL) to draw the route
   const priorityMachines = optimalRoute.filter(m => m.status === 'REFILL' || m.status === 'CRITICAL');
 
-  // Coordinates for the polyline: HQ -> Machine 1 -> Machine 2 ...
-  const routeCoordinates = [hqLocation];
+
+
+  const routeCoordinates = [hqLocation, ...priorityMachines.map(m => getMachineLocation(m))];
 
   const regionsInfo = {
     'DFW': { name: 'Dallas / Fort Worth', coords: '32.7767° N, 96.7970° W', center: [32.7767, -96.7970] },
@@ -113,7 +114,7 @@ export default function FleetMap() {
                    // Check if it's in the optimal route and needs routing
                    const routeIndex = priorityMachines.findIndex(pm => pm.id === m.id);
                    if (routeIndex !== -1) {
-                      routeCoordinates.push(pos);
+                      // routeCoordinates.push(pos); // Removed side-effect from render
                       // Create a custom icon with the sequence number
                       const color = m.status === 'CRITICAL' ? '#FF3366' : '#D4AF37';
                       icon = createCustomIcon(color, (routeIndex + 1).toString());

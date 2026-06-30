@@ -32,6 +32,18 @@ export const inventoryService = {
     return data;
   },
 
+  async updateItem(id, data) {
+    const res = await fetchAdapter(`${API_BASE}/inventory/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to update inventory item');
+    const updatedData = await res.json();
+    this.notify(updatedData);
+    return updatedData;
+  },
+
   notify(data) {
     listeners.forEach(listener => listener(data));
   },
