@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import SafeIcon from '../../common/SafeIcon';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import { useAuth } from '../../context/AuthContext';
+import { MachineContext } from '../../context/MachineContext';
 
 export default function Header({ toggleSidebar }) {
   const { metrics, loading } = useAnalytics();
   const { role, toggleRole } = useAuth();
+  const machineContext = useContext(MachineContext);
+  const isSyncing = machineContext?.isSyncing || false;
 
   return (
     <header className="h-16 border-b border-axim-steel bg-axim-black/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-10">
@@ -23,6 +26,12 @@ export default function Header({ toggleSidebar }) {
       </div>
 
       <div className="flex items-center gap-4 sm:gap-6">
+        {isSyncing && (
+          <div className="hidden sm:flex bg-axim-steel/50 rounded-full px-4 py-1.5 items-center gap-2 border border-axim-steel animate-pulse-fast shadow-[0_0_10px_rgba(212,175,55,0.4)]">
+             <SafeIcon name="FiRefreshCw" className="text-axim-gold animate-spin text-sm" />
+             <span className="text-xs font-medium text-axim-gold">Queue: Active</span>
+          </div>
+        )}
         <div className="hidden sm:flex bg-axim-steel/50 rounded-full px-4 py-1.5 items-center gap-2 border border-axim-steel">
            <span className="w-2 h-2 rounded-full bg-axim-emerald animate-pulse"></span>
            <span className="text-xs font-medium text-gray-300">Fleet Count: {loading ? '...' : metrics?.fleetCount || 0}</span>

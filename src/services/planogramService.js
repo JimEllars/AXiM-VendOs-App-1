@@ -20,7 +20,7 @@ export const planogramService = {
   subscribe(listener) {
     listeners.push(listener);
     // Immediately send current state
-    listener(planogramData);
+    listener([...planogramData]);
     return () => {
       listeners = listeners.filter(l => l !== listener);
     };
@@ -42,7 +42,7 @@ export const planogramService = {
       stock: item.capacity,
       status: 'optimal'
     }));
-    listeners.forEach(listener => listener(planogramData));
+    listeners.forEach(listener => listener([...planogramData]));
   },
 
   recordVend(selectionId, quantity = 1) {
@@ -62,9 +62,36 @@ export const planogramService = {
     });
 
     if (itemToVend) {
-      listeners.forEach(listener => listener(planogramData));
+      listeners.forEach(listener => listener([...planogramData]));
     }
 
     return itemToVend;
+  },
+
+  async updateBulk(audits) {
+    planogramData = planogramData.map(item => {
+      const audit = audits.find(a => a.selectionId === item.id);
+      if (audit) {
+        return {
+          ...item,
+          stock: audit.stock,
+          status: calculateStatus(audit.stock, item.capacity)
+        };
+      }
+      return item;
+    });
+
+    listeners.forEach(listener => listener([...planogramData]));
+  },
+
+  async updateItem(id, updates) {
+    planogramData = planogramData.map(item => {
+      if (item.id === id) {
+        return { ...item, ...updates, status: calculateStatus(updates.stock !== undefined ? updates.stock : item.stock, item.capacity) };
+      }
+      return item;
+    });
+
+    listeners.forEach(listener => listener([...planogramData]));
   }
 };

@@ -5,6 +5,7 @@ import FleetEconomicsChart from '../components/dashboard/FleetEconomicsChart';
 import PlanogramVisualizer from '../components/dashboard/PlanogramVisualizer';
 import ProvisionAssetModal from '../components/modals/ProvisionAssetModal';
 import { machineService } from '../services/machineService';
+import { planogramService } from '../services/planogramService';
 import { useMachines } from '../hooks/useMachines';
 import ErrorBoundary from '../components/layout/ErrorBoundary';
 
@@ -22,19 +23,62 @@ export default function Dashboard() {
     }
   };
 
+  const parseDexFile = (text) => {
+    // Simplified DEX parser extracting PA1 records
+    // e.g., PA1*01*120*10*...
+    const audits = [];
+    const lines = text.split('\n');
+    for (const line of lines) {
+      if (line.startsWith('PA1')) {
+        const parts = line.split('*');
+        if (parts.length >= 4) {
+          const rawId = parts[1]; // e.g. "01"
+          // Map raw ID to our format (A1, A2, etc for demo purposes)
+          let selectionId = '';
+          const num = parseInt(rawId, 10);
+          if (num >= 1 && num <= 3) selectionId = `A${num}`;
+          else if (num >= 4 && num <= 6) selectionId = `B${num - 3}`;
+
+          if (selectionId) {
+            audits.push({
+              selectionId,
+              stock: parseInt(parts[3], 10) || 0
+            });
+          }
+        }
+      }
+    }
+    return audits;
+  };
+
   const handleDexFileChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
       setIsUploadingDEX(true);
 
-      // Simulate 1-second loading
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      try {
+        const text = await file.text();
+        let audits = [];
+        if (file.name.endsWith('.dex') || file.name.endsWith('.txt')) {
+          audits = parseDexFile(text);
+        }
 
-      alert('DEX File parsed. D1 Inventory synced.');
-      setIsUploadingDEX(false);
+        // Simulate some network delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Reset input so the same file can be uploaded again if needed
-      e.target.value = null;
+        if (audits.length > 0) {
+           await planogramService.updateBulk(audits);
+           alert(`DEX File parsed. ${audits.length} PA1 audits synced.`);
+           refresh();
+        } else {
+           alert('No valid PA1 stock audits found in DEX file. (Using mock PA1 records? PA1*01*...*10*)');
+        }
+      } catch (err) {
+        alert('Failed to parse DEX file: ' + err.message);
+      } finally {
+        setIsUploadingDEX(false);
+        e.target.value = null;
+      }
     }
   };
 
