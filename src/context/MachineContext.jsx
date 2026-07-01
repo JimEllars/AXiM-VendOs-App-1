@@ -11,6 +11,7 @@ export const MachineProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [pulseId, setPulseId] = useState(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const fetchMachines = useCallback(async () => {
     try {
@@ -30,6 +31,9 @@ export const MachineProvider = ({ children }) => {
 
   useEffect(() => {
     startTelemetrySimulator((payload) => {
+      setIsSyncing(true);
+      setTimeout(() => setIsSyncing(false), 1500);
+
       setMachines(prev => {
         const updatedId = payload.MachineId;
         const oldMachine = prev.find(m => m.id === updatedId);
@@ -92,7 +96,7 @@ export const MachineProvider = ({ children }) => {
     return () => stopTelemetrySimulator();
   }, []);
 
-  const value = { machines, loading, error, refresh: fetchMachines, pulseId };
+  const value = { machines, loading, error, refresh: fetchMachines, pulseId, isSyncing };
 
   return (
     <MachineContext.Provider value={value}>

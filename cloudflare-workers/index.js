@@ -33,6 +33,16 @@ export default {
 
     if (request.method === 'GET' && url.pathname.includes('/v1/internal/vending/inventory')) {
       try {
+        if (env.SUPPLIER_CATALOG) {
+          const cached = await env.SUPPLIER_CATALOG.get("active_inventory", { type: "json" });
+          if (cached) {
+            return new Response(JSON.stringify(cached), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+            });
+          }
+        }
+
         if (!env.DB) {
            return new Response(JSON.stringify({ error: 'Database not bound' }), {
              status: 500,
@@ -40,6 +50,11 @@ export default {
            });
         }
         const { results } = await env.DB.prepare('SELECT * FROM inventory_logs ORDER BY timestamp DESC').all();
+
+        if (env.SUPPLIER_CATALOG) {
+          ctx.waitUntil(env.SUPPLIER_CATALOG.put("active_inventory", JSON.stringify(results)));
+        }
+
         return new Response(JSON.stringify(results), {
           status: 200,
           headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
