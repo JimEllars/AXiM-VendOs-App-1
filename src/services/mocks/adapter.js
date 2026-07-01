@@ -85,6 +85,13 @@ export const mockFetch = async (url, options = {}) => {
       });
 
       saveInventory();
+
+      // Ensure edge worker cache is invalidated even in mock mode
+      try {
+        const baseUrl = import.meta.env ? (import.meta.env.VITE_AXIM_API_URL || 'http://localhost:8787') : 'http://localhost:8787';
+        fetch(url.replace('https://api.aximcapital.com', baseUrl), options).catch(e => console.warn('Cache invalidate failed', e));
+      } catch (e) { console.error("Error clearing cache", e); }
+
       return { ok: true, json: async () => mockInventory };
     }
   }

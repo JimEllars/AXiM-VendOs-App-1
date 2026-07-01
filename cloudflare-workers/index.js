@@ -12,6 +12,15 @@ export default {
 
     if (request.method === 'GET' && url.pathname.includes('/v1/internal/vending/machines')) {
       try {
+        if (env.VENDOS_MACHINE_STATE) {
+          const cached = await env.VENDOS_MACHINE_STATE.get("fleet_state", { type: "json" });
+          if (cached) {
+            return new Response(JSON.stringify(cached), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+            });
+          }
+        }
         if (!env.DB) {
            return new Response(JSON.stringify({ error: 'Database not bound' }), {
              status: 500,
@@ -19,6 +28,11 @@ export default {
            });
         }
         const { results } = await env.DB.prepare('SELECT * FROM machines ORDER BY updated_at DESC').all();
+
+        if (env.VENDOS_MACHINE_STATE) {
+          ctx.waitUntil(env.VENDOS_MACHINE_STATE.put("fleet_state", JSON.stringify(results)));
+        }
+
         return new Response(JSON.stringify(results), {
           status: 200,
           headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
@@ -33,8 +47,8 @@ export default {
 
     if (request.method === 'GET' && url.pathname.includes('/v1/internal/vending/inventory')) {
       try {
-        if (env.SUPPLIER_CATALOG) {
-          const cached = await env.SUPPLIER_CATALOG.get("active_inventory", { type: "json" });
+        if (env.VENDOS_INVENTORY_CACHE) {
+          const cached = await env.VENDOS_INVENTORY_CACHE.get("active_inventory", { type: "json" });
           if (cached) {
             return new Response(JSON.stringify(cached), {
               status: 200,
@@ -51,11 +65,33 @@ export default {
         }
         const { results } = await env.DB.prepare('SELECT * FROM inventory_logs ORDER BY timestamp DESC').all();
 
-        if (env.SUPPLIER_CATALOG) {
-          ctx.waitUntil(env.SUPPLIER_CATALOG.put("active_inventory", JSON.stringify(results)));
+        if (env.VENDOS_INVENTORY_CACHE) {
+          ctx.waitUntil(env.VENDOS_INVENTORY_CACHE.put("active_inventory", JSON.stringify(results)));
         }
 
         return new Response(JSON.stringify(results), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    }
+
+
+    if (request.method === 'PUT' && url.pathname.includes('/v1/internal/vending/inventory/deplete')) {
+      try {
+        if (env.VENDOS_INVENTORY_CACHE) {
+           ctx.waitUntil(env.VENDOS_INVENTORY_CACHE.delete("active_inventory"));
+        }
+
+        // Since inventory management logic is currently handled by mock API / soon core API,
+        // we'll just invalidate cache and let the request pass through or return ok
+        // In actual setup, we might also do D1 updates here if D1 holds the inventory
+        return new Response(JSON.stringify({ success: true, message: 'Cache invalidated' }), {
           status: 200,
           headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
         });
@@ -182,6 +218,13 @@ export default {
 
       // Webhook payload is valid. Parse and process.
       const data = JSON.parse(body);
+
+      // Write updated machine status to VENDOS_MACHINE_STATE
+      if (env.VENDOS_MACHINE_STATE && data.MachineId) {
+        ctx.waitUntil(env.VENDOS_MACHINE_STATE.put(data.MachineId, JSON.stringify(data)));
+        // Invalidate fleet state so next GET fetches fresh from D1 or rebuilds
+        ctx.waitUntil(env.VENDOS_MACHINE_STATE.delete("fleet_state"));
+      }
 
       // Cloudflare D1 Worker Binding logic
       if (env.DB) {

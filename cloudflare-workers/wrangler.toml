@@ -7,8 +7,12 @@ compatibility_date = "2024-05-12"
 WEBHOOK_SECRET = "simulated_secret_for_validation"
 
 [[kv_namespaces]]
-binding = "SUPPLIER_CATALOG"
-id = "preview_id_stub"
+binding = "VENDOS_MACHINE_STATE"
+id = "4c1bb259013e423a9edabdaacf0ebd5b"
+
+[[kv_namespaces]]
+binding = "VENDOS_INVENTORY_CACHE"
+id = "47cef42cc1f14fd889b87813bbed8b20"
 
 [[queues.producers]]
 binding = "TELEMETRY_QUEUE"
