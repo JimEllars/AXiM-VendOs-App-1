@@ -13,21 +13,31 @@ export const MachineProvider = ({ children }) => {
   const [pulseId, setPulseId] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const fetchMachines = useCallback(async () => {
+
+  const fetchMachines = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const data = await machineService.getAll();
       setMachines(data);
     } catch (err) {
-      setError(err.message);
+      if (!silent) setError(err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     fetchMachines();
+
+    // Live polling if not using mock API
+    if (import.meta.env.VITE_USE_MOCK_API === "false") {
+      const interval = setInterval(() => {
+        fetchMachines(true); // silent fetch
+      }, 15000);
+      return () => clearInterval(interval);
+    }
   }, [fetchMachines]);
+
 
   useEffect(() => {
     startTelemetrySimulator((payload) => {
