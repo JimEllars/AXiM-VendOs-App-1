@@ -9,9 +9,13 @@ import { inventoryService } from '../services/inventoryService';
 export default function Logistics() {
   const { machines, loading: machinesLoading, refresh } = useMachines();
   const [completedStops, setCompletedStops] = useState(new Set());
+  const [processingStops, setProcessingStops] = useState({});
+  const [successStops, setSuccessStops] = useState({});
 
   const handleCompleteStop = async (machineId, currentStock) => {
     try {
+      setProcessingStops(prev => ({ ...prev, [machineId]: true }));
+
       const restockAmount = 100 - currentStock;
       const updateData = { stock: 100, temp: 38.0, status: 'ACTIVE' };
       await machineService.update(machineId, updateData);
@@ -20,10 +24,16 @@ export default function Logistics() {
         await inventoryService.deplete(restockAmount);
       }
 
-      setCompletedStops(prev => new Set([...prev, machineId]));
-      if (refresh) refresh();
+      setSuccessStops(prev => ({ ...prev, [machineId]: true }));
+
+      setTimeout(() => {
+        setCompletedStops(prev => new Set([...prev, machineId]));
+        setProcessingStops(prev => ({ ...prev, [machineId]: false }));
+        if (refresh) refresh();
+      }, 1000);
     } catch (err) {
       console.error('Failed to complete service', err);
+      setProcessingStops(prev => ({ ...prev, [machineId]: false }));
     }
   };
 
@@ -100,8 +110,18 @@ export default function Logistics() {
                       </div>
                     </div>
                     <div className="mt-4 pt-4 border-t border-axim-steel flex justify-end">
-                      <button onClick={() => handleCompleteStop(stop.id, stop.stock)} className="bg-axim-steel/50 hover:bg-axim-emerald text-white hover:text-axim-black text-xs font-bold py-1.5 px-3 rounded flex items-center gap-2 transition-colors">
-                        <SafeIcon name="FiCheck" /> Complete Service
+                      <button
+                        onClick={() => handleCompleteStop(stop.id, stop.stock)}
+                        disabled={processingStops[stop.id]}
+                        className={`bg-axim-steel/50 hover:bg-axim-emerald text-white hover:text-axim-black text-xs font-bold py-1.5 px-3 rounded flex items-center gap-2 transition-colors ${successStops[stop.id] ? 'bg-axim-emerald text-axim-black' : ''}`}
+                      >
+                        {processingStops[stop.id] ? (
+                          <><SafeIcon name="FiLoader" className="animate-spin" /> Processing...</>
+                        ) : successStops[stop.id] ? (
+                          <><SafeIcon name="FiCheck" /> Success</>
+                        ) : (
+                          <><SafeIcon name="FiCheck" /> Complete Service</>
+                        )}
                       </button>
                     </div>
                   </div>

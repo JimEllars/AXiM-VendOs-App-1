@@ -19,14 +19,28 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const QuickActionsMenu = ({ machine, onUpdate }) => {
+const QuickActionsMenu = ({ machine, onUpdate, isProcessing, setProcessing }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
   const handleRestock = async (e) => {
     e.stopPropagation();
     setIsOpen(false);
-    const updateData = { stock: 100, temp: 38.0, status: 'ACTIVE' };
-    await machineService.update(machine.id, updateData);
-    if (onUpdate) onUpdate();
+    setProcessing(machine.id, true);
+
+    try {
+      const updateData = { stock: 100, temp: 38.0, status: 'ACTIVE' };
+      await machineService.update(machine.id, updateData);
+
+      setIsSuccess(true);
+      setTimeout(() => {
+        setIsSuccess(false);
+        setProcessing(machine.id, false);
+        if (onUpdate) onUpdate();
+      }, 1000);
+    } catch (err) {
+      setProcessing(machine.id, false);
+    }
   };
 
   return (
@@ -34,6 +48,7 @@ const QuickActionsMenu = ({ machine, onUpdate }) => {
       <button
         onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
         className="text-gray-500 hover:text-white p-1 rounded hover:bg-axim-steel/50 transition-colors"
+        disabled={isProcessing}
       >
         <SafeIcon name="FiMoreVertical" />
       </button>
@@ -47,9 +62,16 @@ const QuickActionsMenu = ({ machine, onUpdate }) => {
           >
             <button
               onClick={handleRestock}
-              className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-axim-steel/50 hover:text-axim-emerald transition-colors flex items-center gap-2"
+              disabled={isProcessing}
+              className={`w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-axim-steel/50 hover:text-axim-emerald transition-colors flex items-center gap-2 ${isSuccess ? 'bg-axim-emerald/20 text-axim-emerald' : ''}`}
             >
-              <SafeIcon name="FiRefreshCw" /> Force Restock / Clear Faults
+              {isProcessing ? (
+                <><SafeIcon name="FiLoader" className="animate-spin" /> Processing...</>
+              ) : isSuccess ? (
+                <><SafeIcon name="FiCheck" className="text-axim-emerald" /> Success</>
+              ) : (
+                <><SafeIcon name="FiRefreshCw" /> Force Restock / Clear Faults</>
+              )}
             </button>
           </motion.div>
         )}
@@ -59,6 +81,11 @@ const QuickActionsMenu = ({ machine, onUpdate }) => {
 };
 
 export default function MachineStatusGrid() {
+  const [processingMachines, setProcessingMachines] = useState({});
+
+  const setProcessing = (id, isProcessing) => {
+    setProcessingMachines(prev => ({ ...prev, [id]: isProcessing }));
+  };
   const { machines, loading, pulseId, refresh } = useMachines();
 
   if (loading && machines.length === 0) return (
@@ -127,7 +154,7 @@ export default function MachineStatusGrid() {
               </div>
               <div className="flex flex-col items-end gap-2">
                 <StatusBadge status={machine.status} />
-                <QuickActionsMenu machine={machine} onUpdate={refresh} />
+                <QuickActionsMenu machine={machine} onUpdate={refresh} isProcessing={processingMachines[machine.id]} setProcessing={setProcessing} />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 relative z-10">

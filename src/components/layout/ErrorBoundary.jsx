@@ -11,8 +11,20 @@ class ErrorBoundary extends React.Component {
     return { hasError: true, error };
   }
 
+
+  async logErrorToService(error, errorInfo) {
+    const payload = {
+      message: error.toString(),
+      componentStack: errorInfo.componentStack,
+      timestamp: new Date().toISOString(),
+      url: window.location.href,
+    };
+    console.error("[AXiM Observability Queue]", JSON.stringify(payload, null, 2));
+  }
+
   componentDidCatch(error, errorInfo) {
     console.error("ErrorBoundary caught an error", error, errorInfo);
+    this.logErrorToService(error, errorInfo);
   }
 
   render() {
