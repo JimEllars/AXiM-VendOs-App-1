@@ -23,13 +23,20 @@ export default function Dashboard() {
     }
   };
 
-  const parseDexFile = (text) => {
+    const parseDexFile = (text) => {
+    // Check for standard EVA-DTS header
+    if (!text.includes('DXS*')) {
+      throw new Error("Missing EVA-DTS header (DXS)");
+    }
+
     // Simplified DEX parser extracting PA1 records
     // e.g., PA1*01*120*10*...
     const audits = [];
     const lines = text.split('\n');
+    let hasPa1 = false;
     for (const line of lines) {
       if (line.startsWith('PA1')) {
+        hasPa1 = true;
         const parts = line.split('*');
         if (parts.length >= 4) {
           const rawId = parts[1]; // e.g. "01"
@@ -48,6 +55,11 @@ export default function Dashboard() {
         }
       }
     }
+
+    if (!hasPa1) {
+      throw new Error("Missing PA1 segments");
+    }
+
     return audits;
   };
 
@@ -74,7 +86,7 @@ export default function Dashboard() {
            alert('No valid PA1 stock audits found in DEX file. (Using mock PA1 records? PA1*01*...*10*)');
         }
       } catch (err) {
-        alert('Failed to parse DEX file: ' + err.message);
+        alert('Invalid DEX File Format. Please ensure the file was exported correctly from the Nayax terminal.');
       } finally {
         setIsUploadingDEX(false);
         e.target.value = null;
