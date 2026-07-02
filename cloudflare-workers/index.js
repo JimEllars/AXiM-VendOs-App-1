@@ -50,7 +50,16 @@ export default {
         message.ack();
       } catch (error) {
         console.error('Queue processing error:', error);
+        if (env.VENDOS_MACHINE_STATE) {
+          try {
+            await env.VENDOS_MACHINE_STATE.put('DLQ_' + Date.now(), JSON.stringify({ payload: message.body, error: error.message }));
+          } catch (dlqErr) {
+            console.error('Failed to write to DLQ:', dlqErr);
+          }
+        }
+        message.ack();
       }
+
     }
   },
 
@@ -64,6 +73,15 @@ export default {
     }
 
     const url = new URL(request.url);
+
+    // Exclude /telemetry webhook
+    if (!url.pathname.includes('/telemetry') && ['POST', 'PUT', 'PATCH'].includes(request.method)) {
+      const authHeader = request.headers.get('Authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ') || authHeader.split(' ')[1] !== env.AXIM_API_SECRET) {
+        return new Response('Unauthorized', { status: 401 });
+      }
+    }
+
 
     if (request.method === 'GET' && url.pathname.includes('/v1/internal/vending/machines')) {
       try {
@@ -214,6 +232,52 @@ export default {
 
         await env.DB.prepare('UPDATE settings SET value = ?, updated_at = datetime(\'now\') WHERE key = ?')
           .bind(updateData.value, key).run();
+
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    }
+
+
+    if (request.method === 'PUT' && url.pathname.includes('/v1/internal/vending/planogram')) {
+      try {
+        if (!env.DB) {
+           return new Response(JSON.stringify({ error: 'Database not bound' }), {
+             status: 500,
+             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+           });
+        }
+
+        const data = await request.json();
+        // Assume data is an array of objects: { machine_id, coil_id, product_id, current_stock, capacity, status }
+
+        if (!Array.isArray(data)) {
+           return new Response(JSON.stringify({ error: 'Expected an array of planogram objects' }), {
+             status: 400,
+             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+           });
+        }
+
+        const stmts = data.map(item => {
+          return env.DB.prepare(
+            `INSERT INTO planograms (machine_id, coil_id, product_id, current_stock, capacity, status)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(machine_id, coil_id) DO UPDATE SET
+             product_id=excluded.product_id,
+             current_stock=excluded.current_stock,
+             capacity=excluded.capacity,
+             status=excluded.status`
+          ).bind(item.machine_id, item.coil_id, item.product_id, item.current_stock, item.capacity, item.status);
+        });
+
+        await env.DB.batch(stmts);
 
         return new Response(JSON.stringify({ success: true }), {
           status: 200,

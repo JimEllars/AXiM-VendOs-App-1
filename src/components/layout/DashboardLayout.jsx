@@ -1,3 +1,4 @@
+import GlobalAlert from './GlobalAlert';
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
@@ -8,6 +9,7 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex min-h-screen bg-axim-black text-axim-platinum relative">
+      <GlobalAlert />
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       <main className="flex-1 flex flex-col min-w-0">
         <Header toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
