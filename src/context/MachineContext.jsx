@@ -12,9 +12,11 @@ export const MachineProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [pulseId, setPulseId] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [authFailed, setAuthFailed] = useState(false);
 
 
   const fetchMachines = useCallback(async (silent = false) => {
+    if (authFailed) return;
     try {
       if (!silent) setLoading(true);
       const data = await machineService.getAll();
@@ -24,6 +26,14 @@ export const MachineProvider = ({ children }) => {
     } finally {
       if (!silent) setLoading(false);
     }
+  }, [authFailed]);
+
+  useEffect(() => {
+     const handleAuthError = () => {
+         setAuthFailed(true);
+     };
+     window.addEventListener('auth_error', handleAuthError);
+     return () => window.removeEventListener('auth_error', handleAuthError);
   }, []);
 
   useEffect(() => {
@@ -32,11 +42,14 @@ export const MachineProvider = ({ children }) => {
     // Live polling if not using mock API
     if (import.meta.env.VITE_USE_MOCK_API === "false") {
       const interval = setInterval(() => {
-        fetchMachines(true); // silent fetch
+        if (!authFailed) {
+            fetchMachines(true); // silent fetch
+        }
       }, 15000);
+
       return () => clearInterval(interval);
     }
-  }, [fetchMachines]);
+  }, [fetchMachines, authFailed]);
 
 
   useEffect(() => {

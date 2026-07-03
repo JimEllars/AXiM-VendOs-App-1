@@ -28,6 +28,32 @@ export const planogramService = {
   },
 
   async getPlanogramData(machineId) {
+    const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false';
+    if (!useMock) {
+      try {
+        const baseUrl = import.meta.env.VITE_AXIM_API_URL || 'http://localhost:8787';
+        const res = await fetchAdapterUnified(`${baseUrl}/v1/internal/vending/planogram/${machineId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        if (res.ok) {
+           const remoteData = await res.json();
+           if (remoteData && remoteData.length > 0) {
+             planogramData = remoteData;
+             listeners.forEach(listener => listener([...planogramData]));
+           }
+           return [...planogramData];
+        } else {
+           throw new Error(`Failed to load planogram data: ${res.statusText}`);
+        }
+      } catch (err) {
+         console.error('Error fetching planogram data', err);
+         throw err;
+      }
+    }
+
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 600));
     return [...planogramData];
@@ -69,7 +95,7 @@ export const planogramService = {
     return itemToVend;
   },
 
-  async updateBulk(audits) {
+  async updateBulk(audits, machineId = 'DFW-EJR-2607-042') {
     planogramData = planogramData.map(item => {
       const audit = audits.find(a => a.selectionId === item.id);
       if (audit) {
@@ -81,6 +107,31 @@ export const planogramService = {
       }
       return item;
     });
+
+    const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false';
+    if (!useMock) {
+      const baseUrl = import.meta.env.VITE_AXIM_API_URL || 'http://localhost:8787';
+      const payload = planogramData.map(item => ({
+        machine_id: machineId,
+        coil_id: item.id,
+        product_id: item.product,
+        current_stock: item.stock,
+        capacity: item.capacity,
+        status: item.status
+      }));
+
+      const res = await fetchAdapterUnified(baseUrl + '/v1/internal/vending/planogram', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+         throw new Error(`Failed to update planogram bulk: ${res.statusText}`);
+      }
+    }
 
     listeners.forEach(listener => listener([...planogramData]));
   },
@@ -101,7 +152,7 @@ export const planogramService = {
         const baseUrl = import.meta.env.VITE_AXIM_API_URL || 'http://localhost:8787';
         // Build payload matching the DB schema
         const payload = planogramData.map(item => ({
-          machine_id: updates.machineId || 'MACH-001', // Ideally passed, using default if not available
+          machine_id: updates.machineId || 'DFW-EJR-2607-042', // Ideally passed, using default if not available
           coil_id: item.id,
           product_id: item.product,
           current_stock: item.stock,
