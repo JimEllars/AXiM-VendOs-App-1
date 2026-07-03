@@ -46,3 +46,13 @@ CREATE TABLE IF NOT EXISTS settings (
     description TEXT,
     updated_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS planograms (
+    machine_id TEXT NOT NULL,
+    coil_id TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    current_stock INTEGER NOT NULL DEFAULT 0,
+    capacity INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'optimal',
+    PRIMARY KEY (machine_id, coil_id)
+);

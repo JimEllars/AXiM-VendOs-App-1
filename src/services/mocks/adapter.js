@@ -147,16 +147,37 @@ export const mockFetchSettings = async (url, options = {}) => {
 };
 
 // We will export a unified fetch adapter that handles all endpoints
+
+
+
 export const fetchAdapterUnified = async (url, options = {}) => {
     const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false';
     const baseUrl = import.meta.env.VITE_AXIM_API_URL || 'http://localhost:8787';
+
+    // Inject Authorization header for all mutation requests
+    if (['POST', 'PUT', 'PATCH'].includes(options.method)) {
+      options.headers = {
+        ...options.headers,
+        'Authorization': `Bearer ${import.meta.env.VITE_AXIM_API_SECRET}`
+      };
+    }
 
     if (!useMock) {
         // Rewrite the URL if we are pointing to a custom backend
         // AXiM Core URL: https://api.aximcapital.com
         const targetUrl = url.replace('https://api.aximcapital.com', baseUrl);
-        return fetch(targetUrl, options);
+        try {
+            const res = await fetch(targetUrl, options);
+            window.dispatchEvent(new Event('network_restore'));
+            return res;
+        } catch (e) {
+            if (e instanceof TypeError && e.message === 'Failed to fetch') {
+                window.dispatchEvent(new Event('network_error'));
+            }
+            throw e;
+        }
     }
+
 
     // Simulate 50ms to 150ms network delay
     const delay = Math.floor(Math.random() * (150 - 50 + 1)) + 50;

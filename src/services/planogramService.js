@@ -1,3 +1,4 @@
+import { fetchAdapterUnified } from './mocks/adapter';
 let planogramData = [
   { id: 'A1', product: 'Monster Original', stock: 12, capacity: 12, status: 'optimal' },
   { id: 'A2', product: 'Celsius Peach', stock: 4, capacity: 12, status: 'warning' },
@@ -84,6 +85,7 @@ export const planogramService = {
     listeners.forEach(listener => listener([...planogramData]));
   },
 
+
   async updateItem(id, updates) {
     planogramData = planogramData.map(item => {
       if (item.id === id) {
@@ -91,6 +93,33 @@ export const planogramService = {
       }
       return item;
     });
+
+    // Explicitly send PUT request to the live edge API
+    const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false';
+    if (!useMock) {
+      try {
+        const baseUrl = import.meta.env.VITE_AXIM_API_URL || 'http://localhost:8787';
+        // Build payload matching the DB schema
+        const payload = planogramData.map(item => ({
+          machine_id: updates.machineId || 'MACH-001', // Ideally passed, using default if not available
+          coil_id: item.id,
+          product_id: item.product,
+          current_stock: item.stock,
+          capacity: item.capacity,
+          status: item.status
+        }));
+
+        fetchAdapterUnified(baseUrl + '/v1/internal/vending/planogram', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        }).catch(err => console.error('Failed to sync planogram data:', err));
+      } catch (err) {
+        console.error('Error triggering planogram sync', err);
+      }
+    }
 
     listeners.forEach(listener => listener([...planogramData]));
   }
