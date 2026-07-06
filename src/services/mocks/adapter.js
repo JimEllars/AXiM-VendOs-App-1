@@ -104,6 +104,10 @@ export const mockFetch = async (url, options = {}) => {
     return { ok: true, json: async () => ({ success: true }) };
   }
 
+  if (url === 'https://api.aximcapital.com/v1/internal/vending/dlq') {
+    return { ok: true, json: async () => ({ status: 'ok', dlq_count: 0, failed_keys: [] }) };
+  }
+
   // Fallback to real fetch
   return fetch(url, options);
 };

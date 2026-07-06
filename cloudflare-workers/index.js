@@ -47,6 +47,13 @@ export default {
             ).bind(newTemp, machineId).run();
           }
         }
+
+        // Cache Invalidation & Sync for VENDOS_MACHINE_STATE
+        if (env.VENDOS_MACHINE_STATE) {
+          const { results } = await env.DB.prepare('SELECT * FROM machines ORDER BY updated_at DESC').all();
+          await env.VENDOS_MACHINE_STATE.put("fleet_status", JSON.stringify(results));
+        }
+
         message.ack();
       } catch (error) {
         console.error('Queue processing error:', error);
@@ -86,7 +93,7 @@ export default {
     if (request.method === 'GET' && url.pathname.includes('/v1/internal/vending/machines')) {
       try {
         if (env.VENDOS_MACHINE_STATE) {
-          const cached = await env.VENDOS_MACHINE_STATE.get("fleet_state", { type: "json" });
+          const cached = await env.VENDOS_MACHINE_STATE.get("fleet_status", "json");
           if (cached) {
             return new Response(JSON.stringify(cached), {
               status: 200,
@@ -103,7 +110,7 @@ export default {
         const { results } = await env.DB.prepare('SELECT * FROM machines ORDER BY updated_at DESC').all();
 
         if (env.VENDOS_MACHINE_STATE) {
-          ctx.waitUntil(env.VENDOS_MACHINE_STATE.put("fleet_state", JSON.stringify(results)));
+          ctx.waitUntil(env.VENDOS_MACHINE_STATE.put("fleet_status", JSON.stringify(results)));
         }
 
         return new Response(JSON.stringify(results), {
@@ -121,7 +128,7 @@ export default {
     if (request.method === 'GET' && url.pathname.includes('/v1/internal/vending/inventory')) {
       try {
         if (env.VENDOS_INVENTORY_CACHE) {
-          const cached = await env.VENDOS_INVENTORY_CACHE.get("active_inventory", { type: "json" });
+          const cached = await env.VENDOS_INVENTORY_CACHE.get("active_inventory", "json");
           if (cached) {
             return new Response(JSON.stringify(cached), {
               status: 200,
@@ -157,14 +164,20 @@ export default {
 
     if (request.method === 'PUT' && url.pathname.includes('/v1/internal/vending/inventory/deplete')) {
       try {
-        if (env.VENDOS_INVENTORY_CACHE) {
-           ctx.waitUntil(env.VENDOS_INVENTORY_CACHE.delete("active_inventory"));
-        }
-
         // Since inventory management logic is currently handled by mock API / soon core API,
         // we'll just invalidate cache and let the request pass through or return ok
         // In actual setup, we might also do D1 updates here if D1 holds the inventory
-        return new Response(JSON.stringify({ success: true, message: 'Cache invalidated' }), {
+        if (env.VENDOS_INVENTORY_CACHE && env.DB) {
+           // We invalidate cache, but for sync, if DB is bound, let's sync cache from DB
+           ctx.waitUntil((async () => {
+             const { results } = await env.DB.prepare('SELECT * FROM inventory_logs ORDER BY timestamp DESC').all();
+             await env.VENDOS_INVENTORY_CACHE.put("active_inventory", JSON.stringify(results));
+           })());
+        } else if (env.VENDOS_INVENTORY_CACHE) {
+           ctx.waitUntil(env.VENDOS_INVENTORY_CACHE.delete("active_inventory"));
+        }
+
+        return new Response(JSON.stringify({ success: true, message: 'Cache updated' }), {
           status: 200,
           headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
         });
@@ -404,7 +417,7 @@ if (request.method === 'PUT' && url.pathname.includes('/v1/internal/vending/plan
       if (env.VENDOS_MACHINE_STATE && data.MachineId) {
         ctx.waitUntil(env.VENDOS_MACHINE_STATE.put(data.MachineId, JSON.stringify(data)));
         // Invalidate fleet state so next GET fetches fresh from D1 or rebuilds
-        ctx.waitUntil(env.VENDOS_MACHINE_STATE.delete("fleet_state"));
+        ctx.waitUntil(env.VENDOS_MACHINE_STATE.delete("fleet_status"));
       }
 
       // Cloudflare D1 Worker Binding logic

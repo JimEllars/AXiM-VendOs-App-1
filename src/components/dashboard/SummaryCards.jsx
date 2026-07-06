@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import SafeIcon from '../../common/SafeIcon';
 import { useAnalytics } from '../../hooks/useAnalytics';
+import { MachineContext } from '../../context/MachineContext';
 import { formatCurrency } from '../../utils/aximUtils';
 import { ledgerService } from '../../services/ledgerService';
 
-const Card = ({ title, value, subtitle, icon, colorClass, delay, loading }) => (
+const Card = ({ title, value, subtitle, icon, colorClass, delay, loading, animateValue }) => (
   <motion.div 
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
@@ -17,7 +18,19 @@ const Card = ({ title, value, subtitle, icon, colorClass, delay, loading }) => (
     </div>}
     <div>
       <p className="text-sm text-gray-400 font-medium mb-1">{title}</p>
-      <h3 className="text-2xl font-bold text-white tracking-tight">{value}</h3>
+      {animateValue ? (
+        <motion.h3
+          key={animateValue}
+          initial={{ color: '#10b981' }}
+          animate={{ color: '#ffffff' }}
+          transition={{ duration: 0.5 }}
+          className="text-2xl font-bold tracking-tight"
+        >
+          {value}
+        </motion.h3>
+      ) : (
+        <h3 className="text-2xl font-bold text-white tracking-tight">{value}</h3>
+      )}
       {subtitle && <p className={`text-xs mt-2 ${colorClass}`}>{subtitle}</p>}
     </div>
     <div className="p-3 bg-axim-steel/40 rounded-lg">
@@ -28,6 +41,15 @@ const Card = ({ title, value, subtitle, icon, colorClass, delay, loading }) => (
 
 export default function SummaryCards() {
   const { metrics, loading } = useAnalytics();
+  const machineContext = React.useContext(MachineContext);
+  const [animTrigger, setAnimTrigger] = useState(0);
+
+  useEffect(() => {
+    // When machine context updates (e.g. isSyncing flashes), we trigger animation
+    if (machineContext?.isSyncing) {
+      setAnimTrigger(prev => prev + 1);
+    }
+  }, [machineContext?.isSyncing]);
   const [adSpendBudget, setAdSpendBudget] = useState(0);
 
   useEffect(() => {
@@ -60,11 +82,12 @@ export default function SummaryCards() {
       <Card 
         title="Total Cash Yield" 
         value={formatCurrency(data.totalCashYield)} 
-        subtitle={`Net after $${data.monthlyOverhead} OH`} 
+        subtitle={`Net after ${data.monthlyOverhead} OH`}
         icon="FiDollarSign" 
         colorClass="text-axim-emerald" 
         delay={0.1}
         loading={loading}
+        animateValue={animTrigger + formatCurrency(data.totalCashYield)}
       />
       <Card 
         title="Active Route Temp" 
