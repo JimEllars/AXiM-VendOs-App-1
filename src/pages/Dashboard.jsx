@@ -80,13 +80,13 @@ export default function Dashboard() {
 
         if (audits.length > 0) {
            await planogramService.updateBulk(audits);
-           alert(`DEX File parsed. ${audits.length} PA1 audits synced.`);
+           alert(`DEX File parsed. ${audits.length} PA1 audits synced to edge.`);
            refresh();
         } else {
            alert('No valid PA1 stock audits found in DEX file. (Using mock PA1 records? PA1*01*...*10*)');
         }
       } catch (err) {
-        alert('Invalid DEX File Format. Please ensure the file was exported correctly from the Nayax terminal.');
+        alert(`Failed to sync DEX file: ${err.message}`);
       } finally {
         setIsUploadingDEX(false);
         e.target.value = null;

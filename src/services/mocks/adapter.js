@@ -168,6 +168,10 @@ export const fetchAdapterUnified = async (url, options = {}) => {
         const targetUrl = url.replace('https://api.aximcapital.com', baseUrl);
         try {
             const res = await fetch(targetUrl, options);
+            if (res.status === 401) {
+                window.dispatchEvent(new Event('auth_error'));
+                return Promise.reject(new Error('Authentication Failed: Invalid or missing API Secret.'));
+            }
             window.dispatchEvent(new Event('network_restore'));
             return res;
         } catch (e) {

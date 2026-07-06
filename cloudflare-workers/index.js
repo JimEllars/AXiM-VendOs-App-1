@@ -246,7 +246,69 @@ export default {
     }
 
 
-    if (request.method === 'PUT' && url.pathname.includes('/v1/internal/vending/planogram')) {
+
+    if (request.method === 'GET' && url.pathname.match(/\/v1\/internal\/vending\/planogram\/([^/]+)$/)) {
+      try {
+        if (!env.DB) {
+           return new Response(JSON.stringify({ error: 'Database not bound' }), {
+             status: 500,
+             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+           });
+        }
+        const machineId = url.pathname.split('/').pop();
+        const { results } = await env.DB.prepare('SELECT * FROM planograms WHERE machine_id = ?').bind(machineId).all();
+
+        // Map D1 schema to expected frontend format
+        const mappedResults = results.map(row => ({
+          id: row.coil_id,
+          product: row.product_id,
+          stock: row.current_stock,
+          capacity: row.capacity,
+          status: row.status
+        }));
+
+        return new Response(JSON.stringify(mappedResults), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    }
+
+
+    if (request.method === 'GET' && url.pathname.includes('/v1/internal/vending/dlq')) {
+      try {
+        if (!env.VENDOS_MACHINE_STATE) {
+           return new Response(JSON.stringify({ error: 'KV Namespace not bound' }), {
+             status: 500,
+             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+           });
+        }
+
+        const listResult = await env.VENDOS_MACHINE_STATE.list({ prefix: 'DLQ_' });
+        const keys = listResult.keys.map(k => k.name);
+
+        return new Response(JSON.stringify({
+          status: "ok",
+          dlq_count: keys.length,
+          failed_keys: keys
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    }
+
+if (request.method === 'PUT' && url.pathname.includes('/v1/internal/vending/planogram')) {
       try {
         if (!env.DB) {
            return new Response(JSON.stringify({ error: 'Database not bound' }), {
