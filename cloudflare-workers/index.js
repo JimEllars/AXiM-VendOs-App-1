@@ -519,6 +519,28 @@ if (request.method === 'PUT' && url.pathname.includes('/v1/internal/vending/plan
       }
     }
 
+    if (request.method === 'POST' && url.pathname.includes('/api/telemetry/heartbeat')) {
+      try {
+        if (!env.DB) {
+           return new Response(JSON.stringify({ success: false, error: 'Database unavailable' }), { status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+        }
+        const data = await request.json();
+        if (!data.machineId) {
+           return new Response(JSON.stringify({ error: 'Missing machineId' }), { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+        }
+
+        await env.DB.prepare(`INSERT INTO telemetry_logs (id, machine_id, event_type, payload) VALUES (?, ?, ?, ?)`)
+          .bind(crypto.randomUUID(), data.machineId, 'HEARTBEAT', JSON.stringify(data)).run();
+
+        await env.DB.prepare(`UPDATE machines SET status = 'ACTIVE', last_ping = datetime('now'), updated_at = datetime('now') WHERE id = ?`)
+          .bind(data.machineId).run();
+
+        return new Response(JSON.stringify({ success: true, timestamp: data.timestamp || new Date().toISOString(), machineId: data.machineId, acknowledged: true }), { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: 'Database unavailable' }), { status: 503, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      }
+    }
+
     if (request.method === 'POST' && url.pathname.includes('/api/telemetry/ingest')) {
       try {
         if (!env.DB) {

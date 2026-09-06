@@ -3,10 +3,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SafeIcon from '../../common/SafeIcon';
 import { MachineContext } from '../../context/MachineContext';
 import { telemetryEmitter } from '../../utils/telemetrySimulator';
+import { machineService } from '../../services/machineService';
 
 export default function MachineDiagnosticsDrawer() {
   const { machines, selectedMachineId, setSelectedMachineId } = useContext(MachineContext);
   const [localFeed, setLocalFeed] = useState([]);
+
+  const [edgeState, setEdgeState] = useState({ connected: true, msg: 'Edge: Connected' });
+
+  useEffect(() => {
+    const handleEdgeStatus = (e) => {
+      setEdgeState(e.detail);
+    };
+    window.addEventListener('edge_status_update', handleEdgeStatus);
+    return () => window.removeEventListener('edge_status_update', handleEdgeStatus);
+  }, []);
+
 
   const machine = machines.find(m => m.id === selectedMachineId);
   const isOpen = !!machine;
@@ -34,7 +46,8 @@ export default function MachineDiagnosticsDrawer() {
 
   if (!isOpen) return null;
 
-  const handleAction = (actionName) => {
+
+  const handleAction = async (actionName) => {
       window.dispatchEvent(new CustomEvent('globalAlert', {
           detail: { type: 'success', message: `${actionName} command sent to ${machine.id}.` }
       }));
@@ -45,6 +58,18 @@ export default function MachineDiagnosticsDrawer() {
           Command: actionName,
           Timestamp: new Date().toISOString()
       };
+
+      // Dispatch real heartbeat ping
+
+          machineService.sendHeartbeat({
+            machineId: machine.id,
+            timestamp: payload.Timestamp,
+            internalTemp: machine.temp,
+            powerStatus: 'OK',
+            inventoryDelta: 0,
+            errorCodes: []
+          }).catch(console.error);
+
       telemetryEmitter.emit('raw', payload);
   };
 
@@ -93,7 +118,25 @@ export default function MachineDiagnosticsDrawer() {
           <div className="flex-1 overflow-y-auto p-5 space-y-6">
 
             {/* Status Summary */}
+
+            {/* Status Summary */}
+            <div className="bg-axim-black p-4 rounded border border-axim-steel/50 mb-4">
+              <div className="flex justify-between text-xs text-gray-400 mb-2">
+                <span>Last Telemetry Sync:</span>
+                <span className="text-white font-mono">{machine.last_ping ? new Date(machine.last_ping).toLocaleTimeString() : (machine.last_dex ? new Date(machine.last_dex).toLocaleTimeString() : 'N/A')}</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-400 mb-2">
+                <span>Signal Strength (RSSI):</span>
+                <span className="text-white font-mono">-65 dBm (92%)</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>Edge Sync Status:</span>
+                <span className={`font-mono font-bold ${edgeState.connected ? 'text-axim-emerald' : 'text-axim-gold'}`}>{edgeState.msg}</span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
+
                <div className="bg-axim-black p-4 rounded border border-axim-steel/50 text-center">
                   <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Temperature</p>
                   <p className={`text-2xl font-bold ${machine.temp > 45 ? 'text-axim-crimson' : 'text-white'}`}>{machine.temp}&deg;F</p>

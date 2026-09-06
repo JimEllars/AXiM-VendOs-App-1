@@ -11,7 +11,18 @@ export default function Header({ toggleSidebar }) {
   const machineContext = useContext(MachineContext);
   const isSyncing = machineContext?.isSyncing || false;
 
+
   const [dlqCount, setDlqCount] = React.useState(0);
+  const [edgeState, setEdgeState] = React.useState({ connected: true, msg: 'Edge: Connected (24 ms)' });
+
+  React.useEffect(() => {
+    const handleEdgeStatus = (e) => {
+      setEdgeState(e.detail);
+    };
+    window.addEventListener('edge_status_update', handleEdgeStatus);
+    return () => window.removeEventListener('edge_status_update', handleEdgeStatus);
+  }, []);
+
 
   React.useEffect(() => {
     const fetchDlq = async () => {
@@ -59,7 +70,13 @@ export default function Header({ toggleSidebar }) {
              <span className="text-xs font-medium text-axim-gold">Queue: Active</span>
           </div>
         )}
+
         <div className="hidden sm:flex bg-axim-steel/50 rounded-full px-4 py-1.5 items-center gap-2 border border-axim-steel">
+           <span className={`w-2 h-2 rounded-full animate-pulse ${edgeState.connected ? 'bg-axim-emerald' : 'bg-axim-gold'}`}></span>
+           <span className={`text-xs font-medium ${edgeState.connected ? 'text-axim-emerald' : 'text-axim-gold'}`}>{edgeState.msg}</span>
+        </div>
+        <div className="hidden sm:flex bg-axim-steel/50 rounded-full px-4 py-1.5 items-center gap-2 border border-axim-steel">
+
            <span className="w-2 h-2 rounded-full bg-axim-emerald animate-pulse"></span>
            <span className="text-xs font-medium text-gray-300">Fleet Count: {loading ? '...' : metrics?.fleetCount || 0}</span>
         </div>
