@@ -7,7 +7,7 @@ import { fetchAdapter } from '../../services/mocks/adapter';
 
 export default function Header({ toggleSidebar }) {
   const { metrics, loading } = useAnalytics();
-  const { role, toggleRole } = useAuth();
+  const { role, user, logout } = useAuth();
   const machineContext = useContext(MachineContext);
   const isSyncing = machineContext?.isSyncing || false;
 
@@ -65,13 +65,20 @@ export default function Header({ toggleSidebar }) {
         </div>
         
         <div className="flex items-center gap-3 sm:border-l sm:border-axim-steel sm:pl-6">
-          <div className="text-right cursor-pointer hidden sm:block" onClick={toggleRole}>
-            <p className="text-sm font-medium text-white">{role === 'ADMIN' ? 'Admin User' : 'Route Driver'}</p>
-            <p className="text-xs text-gray-400">{role === 'ADMIN' ? 'Corporate Administrator' : 'Field Operations'}</p>
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-medium text-white">{user?.name || (role === 'ADMIN' ? 'Admin User' : 'Route Driver')}</p>
+            <p className="text-xs text-gray-400">
+                <span className="inline-block bg-axim-steel text-axim-gold px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
+                  {role}
+                </span>
+            </p>
           </div>
-          <div className="w-9 h-9 rounded-full bg-axim-steel flex items-center justify-center text-gray-300 border border-gray-700 cursor-pointer sm:cursor-default" onClick={toggleRole}>
+          <div className="w-9 h-9 rounded-full bg-axim-steel flex items-center justify-center text-gray-300 border border-gray-700">
             <SafeIcon name="FiUser" />
           </div>
+          <button onClick={logout} className="ml-2 text-gray-400 hover:text-white transition-colors" title="Logout">
+             <SafeIcon name="FiLogOut" />
+          </button>
         </div>
       </div>
     </header>

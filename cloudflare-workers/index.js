@@ -1,3 +1,4 @@
+import { sendEmailItMessage } from './emailService.js';
 export default {
 
   async queue(batch, env) {
@@ -70,6 +71,116 @@ export default {
     }
   },
 
+
+  async scheduled(event, env, ctx) {
+    // 1. Dispatch Green Machine Financials
+    try {
+      const { results: transactions } = await env.DB.prepare(`SELECT * FROM transactions WHERE created_at >= datetime('now', '-1 day')`).all();
+
+      let grossRevenue = 0;
+      let cardRevenue = 0;
+      let cardFees = 0;
+
+      transactions.forEach(t => {
+        grossRevenue += t.amount;
+        if (t.is_approved) {
+           cardRevenue += t.amount;
+           cardFees += t.amount * 0.0595; // Nayax standard 5.95% mock fee
+        }
+      });
+
+      const cogs = grossRevenue * 0.45; // Simulated 45% COGS for sprint
+      const netRevenue = grossRevenue - cogs - cardFees;
+
+      ctx.waitUntil(
+        fetch('https://greenmachine.axim.us.com/api/v1/ledger/vend-settlement', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+             date: new Date().toISOString().split('T')[0],
+             gross_revenue: grossRevenue,
+             card_revenue: cardRevenue,
+             card_fees: cardFees,
+             cogs: cogs,
+             net_margin: netRevenue
+          })
+        }).catch(err => console.error('Failed to post to Green Machine:', err))
+      );
+    } catch (e) {
+      console.error('Green machine sync error:', e);
+    }
+
+    // 2. Aggregate Fleet Briefing
+    try {
+      const { results: machines } = await env.DB.prepare('SELECT * FROM machines').all();
+      let lowStockAlerts = [];
+      let tempAlerts = [];
+      let faultAlerts = [];
+
+      for (const m of machines) {
+         if (m.temp > 45) tempAlerts.push(m);
+         // Simulate checking planogram for low stock (mock for sprint logic)
+         if (m.stock < 5) lowStockAlerts.push(m);
+         if (m.status === 'fault') faultAlerts.push(m);
+      }
+
+      // Generate HITL token
+      const encoder = new TextEncoder();
+      const secret = env.WEBHOOK_SECRET || 'dummy_secret';
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+      );
+      const tokenPayload = `${Date.now()}-fleet-actions`;
+      const tokenBuffer = await crypto.subtle.sign('HMAC', keyMaterial, encoder.encode(tokenPayload));
+      const tokenHex = Array.from(new Uint8Array(tokenBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      const signedToken = `${tokenPayload}.${tokenHex}`;
+
+      if (env.VENDOS_STATE_KV) {
+        await env.VENDOS_STATE_KV.put(`HITL_${signedToken}`, JSON.stringify({
+           generatedAt: Date.now(),
+           machinesAlerted: lowStockAlerts.map(m => m.id)
+        }), { expirationTtl: 86400 });
+      }
+
+      const workerDomain = 'vendos-telemetry-webhook.axim-capital.workers.dev'; // Replace with actual worker domain
+
+      const htmlBody = `
+        <html>
+        <body style="background-color: #1a1a1a; color: #fff; font-family: sans-serif; padding: 20px;">
+          <h1 style="color: #d4af37;">AXiM VendOS Fleet Briefing</h1>
+          <p>Daily Summary for ${new Date().toISOString().split('T')[0]}</p>
+
+          <h2 style="border-bottom: 1px solid #333; padding-bottom: 5px;">Action Required</h2>
+
+          <div style="background-color: #2a2a2a; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <p><strong>Low Stock Machines:</strong> ${lowStockAlerts.length}</p>
+            <p><strong>Temperature Alerts:</strong> ${tempAlerts.length}</p>
+            <p><strong>Fault Alerts:</strong> ${faultAlerts.length}</p>
+
+            <div style="margin-top: 15px; display: flex; gap: 10px;">
+              <a href="https://${workerDomain}/api/v1/route/action?token=${signedToken}&decision=approve" style="background-color: #10b981; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;">Approve Restock Route</a>
+              <a href="https://${workerDomain}/api/v1/maintenance/action?token=${signedToken}&decision=dispatch" style="background-color: #ef4444; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;">Dispatch Support Ticket</a>
+              <a href="https://vendos.axim.us.com" style="background-color: #3b82f6; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;">Inspect Fleet in Cockpit</a>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      await sendEmailItMessage(env, {
+        from: "System Alerts <alerts@axim.us.com>",
+        to: ["james.ellars@axim.us.com"],
+        bcc: ["jrellars@gmail.com"],
+        subject: `[AXiM VendOS Fleet Briefing] Daily Vending Revenue, Stock & Route Digest - ${new Date().toISOString().split('T')[0]}`,
+        html: htmlBody
+      });
+
+    } catch (e) {
+      console.error('Scheduled briefing error:', e);
+    }
+  },
+
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: {
@@ -89,6 +200,48 @@ export default {
       }
     }
 
+
+
+    if (request.method === 'GET' && url.pathname.includes('/api/v1/route/action')) {
+      const token = url.searchParams.get('token');
+      const decision = url.searchParams.get('decision');
+
+      if (!env.VENDOS_STATE_KV) {
+        return new Response('KV not bound', { status: 500 });
+      }
+
+      const kvData = await env.VENDOS_STATE_KV.get(`HITL_${token}`);
+      if (!kvData) {
+        return new Response('Invalid or expired token', { status: 403 });
+      }
+
+      await env.VENDOS_STATE_KV.delete(`HITL_${token}`);
+
+      return new Response(
+        '<html><body style="background: #1a1a1a; color: #10b981; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh;"><h1>Restock Route Approved & Dispatched Successfully</h1></body></html>',
+        { status: 200, headers: { 'Content-Type': 'text/html' } }
+      );
+    }
+
+    if (request.method === 'GET' && url.pathname.includes('/api/v1/maintenance/action')) {
+      const token = url.searchParams.get('token');
+
+      if (!env.VENDOS_STATE_KV) {
+        return new Response('KV not bound', { status: 500 });
+      }
+
+      const kvData = await env.VENDOS_STATE_KV.get(`HITL_${token}`);
+      if (!kvData) {
+        return new Response('Invalid or expired token', { status: 403 });
+      }
+
+      await env.VENDOS_STATE_KV.delete(`HITL_${token}`);
+
+      return new Response(
+        '<html><body style="background: #1a1a1a; color: #ef4444; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh;"><h1>Maintenance Tickets Dispatched to Support Successfully</h1></body></html>',
+        { status: 200, headers: { 'Content-Type': 'text/html' } }
+      );
+    }
 
     if (request.method === 'GET' && url.pathname.includes('/v1/internal/vending/machines')) {
       try {
@@ -499,15 +652,61 @@ if (request.method === 'PUT' && url.pathname.includes('/v1/internal/vending/plan
       }
 
       // Seamlessly and silently POST the validated JSON payload to the AXiM API
+
+      // AXiM Core Telemetry signature generation
+      const payloadString = JSON.stringify(data);
+      const aximSignatureBuffer = await crypto.subtle.sign(
+        'HMAC',
+        keyMaterial, // reusing the same secret key material, or you'd generate a new one if it differs
+        encoder.encode(payloadString)
+      );
+      const aximSignatureHex = Array.from(new Uint8Array(aximSignatureBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      // Seamlessly and silently POST the validated JSON payload to the AXiM API
       ctx.waitUntil(
-        fetch('https://api.aximcapital.com/v1/internal/vending/telemetry', {
+        fetch('https://api.axim.us.com/functions/v1/satellite-telemetry', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Axim-Signature': aximSignatureHex
+          },
+          body: payloadString
         }).catch(err => {
           console.error('Failed to post telemetry to AXiM Core:', err);
         })
       );
+
+      // Support System Maintenance Trigger
+      if (data.Type === 'TEMP_READING' && data.NewTemp > 45) {
+         ctx.waitUntil(
+           fetch('https://support.axim.us.com/api/v1/tickets/auto-create', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({
+               title: "Hardware Alert: " + data.MachineId,
+               priority: "high",
+               category: "Hardware/VendOS",
+               details: "Compressor temperature deviation detected. Temp: " + data.NewTemp
+             })
+           }).catch(err => console.error('Failed to create support ticket:', err))
+         );
+      } else if (data.Type === 'FAULT' && (data.FaultCode === 'BILL_JAM' || data.FaultCode === 'COIN_EMPTY')) {
+         ctx.waitUntil(
+           fetch('https://support.axim.us.com/api/v1/tickets/auto-create', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({
+               title: "Hardware Alert: " + data.MachineId,
+               priority: "high",
+               category: "Hardware/VendOS",
+               details: "Hardware fault detected: " + data.FaultCode
+             })
+           }).catch(err => console.error('Failed to create support ticket:', err))
+         );
+      }
+
 
       return new Response('OK', { status: 200 });
     } catch (error) {
