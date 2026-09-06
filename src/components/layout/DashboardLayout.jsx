@@ -1,3 +1,4 @@
+import MachineDiagnosticsDrawer from "../dashboard/MachineDiagnosticsDrawer";
 import GlobalAlert from './GlobalAlert';
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
@@ -14,6 +15,8 @@ export default function DashboardLayout() {
       <main className="flex-1 flex flex-col min-w-0">
         <Header toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
         <div className="flex-1 overflow-auto p-6">
+          <MachineDiagnosticsDrawer />
+
           <div className="max-w-7xl mx-auto">
             <Outlet />
           </div>

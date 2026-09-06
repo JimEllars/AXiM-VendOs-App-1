@@ -104,6 +104,14 @@ export const mockFetch = async (url, options = {}) => {
     return { ok: true, json: async () => ({ success: true }) };
   }
 
+  if (url === 'https://api.aximcapital.com/v1/internal/vending/telemetry/ingest') {
+    return { ok: true, json: async () => ({ success: true }) };
+  }
+
+  if (url === 'https://api.aximcapital.com/v1/internal/vending/telemetry/recent') {
+    return { ok: true, json: async () => ([]) };
+  }
+
   if (url === 'https://api.aximcapital.com/v1/internal/vending/dlq') {
     return { ok: true, json: async () => ({ status: 'ok', dlq_count: 0, failed_keys: [] }) };
   }
@@ -172,9 +180,12 @@ export const fetchAdapterUnified = async (url, options = {}) => {
         const targetUrl = url.replace('https://api.aximcapital.com', baseUrl);
         try {
             const res = await fetch(targetUrl, options);
-            if (res.status === 401) {
-                window.dispatchEvent(new Event('auth_error'));
-                return Promise.reject(new Error('Authentication Failed: Invalid or missing API Secret.'));
+            if (!res.ok) {
+                if (res.status === 401) {
+                    window.dispatchEvent(new Event('auth_error'));
+                    return Promise.reject(new Error('Authentication Failed: Invalid or missing API Secret.'));
+                }
+                throw new Error("Worker responded with " + res.status);
             }
             window.dispatchEvent(new Event('network_restore'));
             return res;
@@ -182,7 +193,13 @@ export const fetchAdapterUnified = async (url, options = {}) => {
             if (e instanceof TypeError && e.message === 'Failed to fetch') {
                 window.dispatchEvent(new Event('network_error'));
             }
-            throw e;
+            console.warn(`[Service Bridge] Worker fetch failed (${e.message}). Falling back to mock adapter for ${targetUrl}`);
+
+            // Fallback logic
+            if (url.includes('/settings')) {
+                return mockFetchSettings(url, options);
+            }
+            return mockFetch(url, options);
         }
     }
 

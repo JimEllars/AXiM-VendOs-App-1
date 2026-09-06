@@ -56,3 +56,12 @@ CREATE TABLE IF NOT EXISTS planograms (
     status TEXT NOT NULL DEFAULT 'optimal',
     PRIMARY KEY (machine_id, coil_id)
 );
+
+CREATE TABLE IF NOT EXISTS telemetry_logs (
+    id TEXT PRIMARY KEY,
+    machine_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_telemetry_logs_machine_id ON telemetry_logs(machine_id);

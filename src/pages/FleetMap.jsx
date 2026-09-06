@@ -44,7 +44,7 @@ const getMachineLocation = (machine) => {
 };
 
 export default function FleetMap() {
-  const { machines, loading } = useMachines();
+  const { machines, loading, setSelectedMachineId } = useMachines();
   const [optimalRoute, setOptimalRoute] = useState([]);
 
   useEffect(() => {
@@ -176,7 +176,12 @@ export default function FleetMap() {
                 {grouped[code]?.map(m => {
                   const routeIndex = priorityMachines.findIndex(pm => pm.id === m.id);
                   return (
-                    <div key={m.id} className="flex justify-between items-center p-2 bg-axim-black/50 rounded border border-axim-steel/30 text-xs">
+                    <div
+                      key={m.id}
+                      className="flex justify-between items-center p-2 bg-axim-black/50 rounded border border-axim-steel/30 text-xs cursor-pointer hover:border-axim-emerald/50 transition-colors"
+                      onClick={() => setSelectedMachineId(m.id)}
+                    >
+                    //
                       <span className="text-gray-300">
                         {m.location}
                         {routeIndex !== -1 && <span className="ml-2 text-blue-400 font-bold">(Stop #{routeIndex + 1})</span>}

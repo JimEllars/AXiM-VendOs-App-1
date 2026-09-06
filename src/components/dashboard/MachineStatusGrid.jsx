@@ -86,7 +86,7 @@ export default function MachineStatusGrid() {
   const setProcessing = (id, isProcessing) => {
     setProcessingMachines(prev => ({ ...prev, [id]: isProcessing }));
   };
-  const { machines, loading, pulseId, refresh } = useMachines();
+  const { machines, loading, pulseId, refresh, setSelectedMachineId, telemetryFeed } = useMachines();
 
   if (loading && machines.length === 0) return (
     <div className="bg-axim-charcoal border border-axim-steel rounded-xl h-96 flex items-center justify-center">
@@ -117,6 +117,9 @@ export default function MachineStatusGrid() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 * i }}
+            onClick={() => setSelectedMachineId(machine.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter') setSelectedMachineId(machine.id); }}
+            tabIndex={0}
             className={`p-4 border rounded-lg bg-axim-black flex flex-col justify-between transition-all cursor-pointer group relative overflow-hidden ${
               pulseId === machine.id
                 ? 'border-axim-emerald shadow-[0_0_15px_rgba(0,229,163,0.3)]'
