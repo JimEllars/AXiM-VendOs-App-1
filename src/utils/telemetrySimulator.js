@@ -126,6 +126,14 @@ export const startTelemetrySimulator = (speed = 5000) => {
           Timestamp: new Date().toISOString()
         };
         telemetryEmitter.emit('heartbeat', payload);
+        machineService.sendHeartbeat({
+          machineId: machine.id,
+          timestamp: payload.Timestamp,
+          internalTemp: newTemp,
+          powerStatus: 'OK',
+          inventoryDelta: 0,
+          errorCodes: []
+        }).catch(err => console.error('Failed to send heartbeat via machineService', err));
         telemetryEmitter.emit('raw', payload);
 
         if (newTemp > 45) {
