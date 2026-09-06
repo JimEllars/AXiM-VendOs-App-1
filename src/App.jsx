@@ -7,6 +7,7 @@ import Finance from './pages/Finance';
 import Logistics from './pages/Logistics';
 import Settings from './pages/Settings';
 import FleetMap from './pages/FleetMap';
+import AuthCallback from './pages/AuthCallback';
 import { MachineProvider } from './context/MachineContext';
 import { SettingsProvider } from './context/SettingsContext';
 import { AuthProvider } from './context/AuthContext';
@@ -20,6 +21,7 @@ function App() {
         <MachineProvider>
         <Router>
           <Routes>
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/" element={<DashboardLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="map" element={<FleetMap />} />

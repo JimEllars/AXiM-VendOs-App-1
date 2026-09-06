@@ -17,3 +17,15 @@ id = "47cef42cc1f14fd889b87813bbed8b20"
 [[queues.producers]]
 binding = "TELEMETRY_QUEUE"
 queue = "vendos-telemetry"
+
+
+[triggers]
+crons = ["0 12 * * *"] # 7:00 AM EST / 12:00 UTC daily
+
+[[kv_namespaces]]
+binding = "VENDOS_STATE_KV"
+id = "mock-state-kv-id-for-sprint"
+
+[[kv_namespaces]]
+binding = "VENDOS_DLQ_KV"
+id = "mock-dlq-kv-id-for-sprint"
