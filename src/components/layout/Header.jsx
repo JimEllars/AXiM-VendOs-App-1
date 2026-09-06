@@ -3,12 +3,33 @@ import SafeIcon from '../../common/SafeIcon';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import { useAuth } from '../../context/AuthContext';
 import { MachineContext } from '../../context/MachineContext';
+import { fetchAdapter } from '../../services/mocks/adapter';
 
 export default function Header({ toggleSidebar }) {
   const { metrics, loading } = useAnalytics();
   const { role, toggleRole } = useAuth();
   const machineContext = useContext(MachineContext);
   const isSyncing = machineContext?.isSyncing || false;
+
+  const [dlqCount, setDlqCount] = React.useState(0);
+
+  React.useEffect(() => {
+    const fetchDlq = async () => {
+      try {
+        const res = await fetchAdapter('https://api.aximcapital.com/v1/internal/vending/dlq');
+        if (res.ok) {
+          const data = await res.json();
+          setDlqCount(data.dlq_count || 0);
+        }
+      } catch (err) {
+        console.error('Failed to fetch DLQ count', err);
+      }
+    };
+
+    fetchDlq();
+    const interval = setInterval(fetchDlq, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <header className="h-16 border-b border-axim-steel bg-axim-black/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-10">
@@ -26,6 +47,12 @@ export default function Header({ toggleSidebar }) {
       </div>
 
       <div className="flex items-center gap-4 sm:gap-6">
+        {dlqCount > 0 && (
+          <div className="hidden sm:flex bg-axim-crimson/20 rounded-full px-4 py-1.5 items-center gap-2 border border-axim-crimson animate-pulse">
+             <SafeIcon name="FiAlertTriangle" className="text-axim-crimson text-sm" />
+             <span className="text-xs font-medium text-axim-crimson">DLQ: {dlqCount}</span>
+          </div>
+        )}
         {isSyncing && (
           <div className="hidden sm:flex bg-axim-steel/50 rounded-full px-4 py-1.5 items-center gap-2 border border-axim-steel animate-pulse-fast shadow-[0_0_10px_rgba(212,175,55,0.4)]">
              <SafeIcon name="FiRefreshCw" className="text-axim-gold animate-spin text-sm" />
