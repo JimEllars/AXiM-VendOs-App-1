@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { machineService } from '../services/machineService';
-import { startTelemetrySimulator, stopTelemetrySimulator } from '../utils/telemetrySimulator';
+import { startTelemetrySimulator, stopTelemetrySimulator, telemetryEmitter } from '../utils/telemetrySimulator';
 import { ledgerService } from '../services/ledgerService';
 import { inventoryService } from '../services/inventoryService';
 
@@ -13,7 +13,8 @@ export const MachineProvider = ({ children }) => {
   const [pulseId, setPulseId] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [authFailed, setAuthFailed] = useState(false);
-
+  const [telemetryFeed, setTelemetryFeed] = useState([]);
+  const [selectedMachineId, setSelectedMachineId] = useState(null);
 
   const fetchMachines = useCallback(async (silent = false) => {
     if (authFailed) return;
@@ -51,11 +52,21 @@ export const MachineProvider = ({ children }) => {
     }
   }, [fetchMachines, authFailed]);
 
+  const addTelemetryEvent = useCallback((event) => {
+     setTelemetryFeed(prev => {
+        const newFeed = [event, ...prev];
+        if (newFeed.length > 50) return newFeed.slice(0, 50);
+        return newFeed;
+     });
+  }, []);
+
 
   useEffect(() => {
-    startTelemetrySimulator((payload) => {
+    const handleRawEvent = (payload) => {
       setIsSyncing(true);
       setTimeout(() => setIsSyncing(false), 1500);
+
+      addTelemetryEvent(payload);
 
       setMachines(prev => {
         const updatedId = payload.MachineId;
@@ -94,7 +105,7 @@ export const MachineProvider = ({ children }) => {
         const newTemp = updateData.temp !== undefined ? updateData.temp : oldMachine.temp;
 
         if (payload.Type !== 'RESTOCK') {
-          if (newStock < 30 || newTemp > 40) {
+          if (newStock < 30 || newTemp > 40 || payload.AlertType === 'MDB_FAULT') {
             updateData.status = 'ONYX_DISPATCHED';
             if (oldMachine.status !== 'ONYX_DISPATCHED') {
               updateData.dispatchedAt = Date.now();
@@ -114,12 +125,28 @@ export const MachineProvider = ({ children }) => {
 
       setPulseId(payload.MachineId);
       setTimeout(() => setPulseId(null), 2000);
-    });
+    };
 
-    return () => stopTelemetrySimulator();
-  }, []);
+    telemetryEmitter.on('raw', handleRawEvent);
+    startTelemetrySimulator(5000); // 5 seconds per event
 
-  const value = { machines, loading, error, refresh: fetchMachines, pulseId, isSyncing };
+    return () => {
+      telemetryEmitter.off('raw', handleRawEvent);
+      stopTelemetrySimulator();
+    };
+  }, [addTelemetryEvent]);
+
+  const value = {
+     machines,
+     loading,
+     error,
+     refresh: fetchMachines,
+     pulseId,
+     isSyncing,
+     telemetryFeed,
+     selectedMachineId,
+     setSelectedMachineId
+  };
 
   return (
     <MachineContext.Provider value={value}>

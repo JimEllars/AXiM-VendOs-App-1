@@ -366,6 +366,32 @@ if (request.method === 'PUT' && url.pathname.includes('/v1/internal/vending/plan
       }
     }
 
+    if (request.method === 'POST' && url.pathname.includes('/api/telemetry/ingest')) {
+      try {
+        if (!env.DB) {
+           return new Response(JSON.stringify({ error: 'Database not bound' }), { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+        }
+        const data = await request.json();
+        await env.DB.prepare(`INSERT INTO telemetry_logs (id, machine_id, event_type, payload) VALUES (?, ?, ?, ?)`)
+          .bind(crypto.randomUUID(), data.machine_id, data.event_type, JSON.stringify(data.payload)).run();
+        return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      }
+    }
+
+    if (request.method === 'GET' && url.pathname.includes('/api/telemetry/recent')) {
+      try {
+        if (!env.DB) {
+           return new Response(JSON.stringify({ error: 'Database not bound' }), { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+        }
+        const { results } = await env.DB.prepare(`SELECT * FROM telemetry_logs ORDER BY created_at DESC LIMIT 20`).all();
+        return new Response(JSON.stringify(results), { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      }
+    }
+
     if (request.method !== 'POST') {
       return new Response('Method Not Allowed', { status: 405 });
     }

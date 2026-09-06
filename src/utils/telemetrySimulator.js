@@ -1,29 +1,60 @@
 import { machineService } from '../services/machineService';
 import { planogramService } from '../services/planogramService';
 
+class TelemetryEmitter {
+  constructor() {
+    this.listeners = {
+      'heartbeat': [],
+      'transaction': [],
+      'alert': [],
+      'raw': []
+    };
+  }
+
+  on(event, callback) {
+    if (this.listeners[event]) {
+      this.listeners[event].push(callback);
+    }
+  }
+
+  off(event, callback) {
+    if (this.listeners[event]) {
+      this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
+    }
+  }
+
+  emit(event, data) {
+    if (this.listeners[event]) {
+      this.listeners[event].forEach(cb => cb(data));
+    }
+    if (event !== 'raw' && this.listeners['raw']) {
+      this.listeners['raw'].forEach(cb => cb({ event, ...data }));
+    }
+  }
+}
+
+export const telemetryEmitter = new TelemetryEmitter();
 let intervalId = null;
+let currentSpeed = 5000; // default 5 seconds
 
 const generateHMAC = (payload) => {
-  // Simulating an HMAC generation for realism
   return 'hmac_sha256_' + btoa(JSON.stringify(payload)).substring(0, 32);
 };
 
-const selectionIds = ['A1', 'A2', 'A3', 'B1', 'B2', 'B3'];
-
-export const startTelemetrySimulator = (callback) => {
+export const startTelemetrySimulator = (speed = 5000) => {
   if (intervalId) return;
+  currentSpeed = speed;
 
   intervalId = setInterval(async () => {
     try {
       const machines = await machineService.getAll();
       if (machines.length === 0) return;
 
-      // Restock Agent Logic
       const now = Date.now();
       const needsRestock = machines.find(m =>
         m.status === 'ONYX_DISPATCHED' &&
         m.dispatchedAt &&
-        (now - m.dispatchedAt) > 35000 // 35 seconds
+        (now - m.dispatchedAt) > 35000
       );
 
       if (needsRestock) {
@@ -34,60 +65,94 @@ export const startTelemetrySimulator = (callback) => {
           Type: 'RESTOCK',
           Timestamp: new Date().toISOString()
         };
-        const hmac = generateHMAC(payload);
-        console.log(`[Telemetry Sim] Webhook Dispatched (RESTOCK) | HMAC: ${hmac}`, payload);
-        if (callback) callback(payload);
+        telemetryEmitter.emit('raw', payload);
         return;
       }
 
-      // Pick a random machine
       const randomIndex = Math.floor(Math.random() * machines.length);
       const machine = machines[randomIndex];
 
-      // Simulate a vend (stock decrease) or temp change
-      let isVend = Math.random() > 0.5;
+      const eventType = Math.random();
 
-      const availableSelections = planogramService.getAvailableSelections();
-      if (availableSelections.length === 0) {
-        isVend = false; // Force temp reading if nothing to vend
-      }
+      if (eventType < 0.4) {
+        // VEND TRANSACTION
+        const availableSelections = planogramService.getAvailableSelections();
+        if (availableSelections.length > 0) {
+          const selectionId = availableSelections[Math.floor(Math.random() * availableSelections.length)];
+          const quantity = 1;
+          const vendResult = planogramService.recordVend(selectionId, quantity);
 
-      const payload = {
-        NayaxTransactionId: crypto.randomUUID(),
-        MachineId: machine.id,
-        IsApproved: true,
-        Timestamp: new Date().toISOString()
-      };
+          const newStock = Math.max(0, machine.stock - quantity);
+          const paymentTypes = ['MDB Cashless', 'Cash', 'NFC'];
+          const statuses = ['Success', 'Success', 'Success', 'Jam', 'Drop Sensor Fail'];
+          const paymentType = paymentTypes[Math.floor(Math.random() * paymentTypes.length)];
+          const status = statuses[Math.floor(Math.random() * statuses.length)];
 
-      if (isVend) {
-         const selectionId = availableSelections[Math.floor(Math.random() * availableSelections.length)];
-         const quantity = 1; // keep it 1 to match planogram decrements nicely, or could be random
+          const payload = {
+            MachineId: machine.id,
+            Type: 'VEND',
+            Item: vendResult ? vendResult.product : 'Simulated Item',
+            SelectionId: selectionId,
+            Amount: 2.50,
+            Quantity: quantity,
+            NewStock: newStock,
+            PaymentType: paymentType,
+            VendStatus: status,
+            NayaxTransactionId: crypto.randomUUID(),
+            Timestamp: new Date().toISOString()
+          };
 
-         const vendResult = planogramService.recordVend(selectionId, quantity);
+          telemetryEmitter.emit('transaction', payload);
+          telemetryEmitter.emit('raw', payload);
 
-         payload.Type = 'VEND';
-         payload.Item = vendResult ? vendResult.product : 'Simulated Item';
-         payload.SelectionId = selectionId;
-         payload.Amount = 2.50;
-         payload.Quantity = quantity;
-         payload.NewStock = Math.max(0, machine.stock - payload.Quantity);
+          if (newStock < 30) {
+             telemetryEmitter.emit('alert', {
+                MachineId: machine.id,
+                AlertType: 'LOW_STOCK',
+                Message: `Low stock threshold breached.`,
+                Timestamp: new Date().toISOString()
+             });
+          }
+        }
+      } else if (eventType < 0.8) {
+        // HEARTBEAT
+        const newTemp = parseFloat((machine.temp + (Math.random() * 2 - 1)).toFixed(1));
+        const rssi = Math.floor(Math.random() * 40) - 90; // -90 to -50 dBm
+        const payload = {
+          MachineId: machine.id,
+          Type: 'TEMP_READING',
+          NewTemp: newTemp,
+          RSSI: rssi,
+          Timestamp: new Date().toISOString()
+        };
+        telemetryEmitter.emit('heartbeat', payload);
+        telemetryEmitter.emit('raw', payload);
+
+        if (newTemp > 45) {
+           telemetryEmitter.emit('alert', {
+              MachineId: machine.id,
+              AlertType: 'HIGH_TEMP',
+              Message: `Temperature out of spec (> 45°F).`,
+              Timestamp: new Date().toISOString(),
+              Temp: newTemp
+           });
+        }
       } else {
-         payload.Type = 'TEMP_READING';
-         payload.NewTemp = parseFloat((machine.temp + (Math.random() * 2 - 1)).toFixed(1));
-      }
-
-      const hmac = generateHMAC(payload);
-      console.log(`[Telemetry Sim] Webhook Dispatched | HMAC: ${hmac}`, payload);
-
-      // Notify UI via callback with raw payload
-      if (callback) {
-        callback(payload);
+         // Random general alert to simulate issues
+         if (Math.random() > 0.8) {
+            telemetryEmitter.emit('alert', {
+               MachineId: machine.id,
+               AlertType: 'MDB_FAULT',
+               Message: 'Coin Changer Offline',
+               Timestamp: new Date().toISOString()
+            });
+         }
       }
 
     } catch (err) {
       console.error('Telemetry simulator error', err);
     }
-  }, 10000); // 10 seconds for more visible action during testing, normally 30-60s
+  }, currentSpeed);
 };
 
 export const stopTelemetrySimulator = () => {
